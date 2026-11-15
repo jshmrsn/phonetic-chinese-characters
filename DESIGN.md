@@ -177,7 +177,78 @@ Inside a rhyme the ending takes the bottom 30%, only 3% below the vowel, so the
 two read as one symbol. Rhyme aspect windows are 0.7–1.7 under a medial,
 0.5–1.0 beside an initial alone, and 0.7–1.06 filling the block.
 
-## 8. Known trade-offs
+## 8. Rendering: the brush simulator
+
+Components are designed as centre-lines. They are drawn with a simulated
+brush (`src/brush.rs`), which runs four steps:
+
+1. **Shapes the path.** Straight 横 bow slightly upward and diagonals bow
+   outward. Designed curves get deeper. Horizontals rise to the right through
+   a shear, which keeps verticals vertical. Hooks flick further out, and a
+   smooth seeded wobble imitates an unsteady hand.
+2. **Reads each stroke from its own geometry.** Each stroke is classified the
+   way a calligrapher would name it: a pressed 横/竖 end, a sweeping 撇, a
+   rising 提, a 捺 with a foot, a 点, and whether it ends in a hook (钩).
+   Sharp turns (折) split it into pieces.
+3. **Applies pressure.** A width profile runs along the stroke:
+   * pressed entries and pauses (顿笔);
+   * verticals heavier than horizontals;
+   * a slimmer waist on long strokes;
+   * pressed corners;
+   * tips that taper after the turn;
+   * the swelling foot of a 捺 and the teardrop of a 点.
+4. **Builds the outline.** Each piece is offset by half its width and given
+   round caps. The pieces share one winding direction, so they merge under
+   the nonzero fill rule.
+
+The knobs (weight, pressure, taper, pauses, arcs, hooks, wobble) each run from
+0 to 1. A single slider blends from **Geometric** (all zero) to **Brush**. All
+zero reproduces the plain constant-width rendering: round caps, round joins.
+
+## 9. The keyboard
+
+A touch keyboard for the script types a block the way it is built: initial,
+then medial, then rhyme, then a tone. Its keys are the components themselves,
+coloured by role like the blocks: initials red, medials cyan, rhymes blue,
+tones purple.
+
+The board never changes shape. It is adapted from the standard zhuyin (大千)
+layout, whose columns group the consonants by place, which here means by frame.
+All five tones are gathered in the middle of the top row:
+
+```
+    ㄅ ㄉ ㄓ  ˉ ˊ ˇ ˋ ˙  ㄚ ㄞ ㄢ
+    ㄆ ㄊ ㄍ ㄐ ㄔ ㄗ ㄧ ㄛ ㄟ ㄣ ㄦ
+    ㄇ ㄋ ㄎ ㄑ ㄕ ㄘ ㄙ ㄨ ㄜ ㄠ ㄤ
+ABC  ㄈ ㄌ ㄏ ㄒ ㄖ ㄩ ㄝ ㄡ ㄥ  ⌫
+     123  ☺  [    space    ]  ⏎
+```
+
+After every key, the keyboard checks which keys can still lead to a real
+Mandarin syllable. After ㄐ, for example, only ㄧ, ㄩ and the tones are
+possible. There are two layouts:
+
+* **Fixed**: the board never changes shape, and impossible keys are dimmed
+  and disabled.
+* **Dynamic**: impossible keys are hidden, and the rows shrink around the
+  ones that remain. Emptied rows collapse. The tone keys appear once a block
+  has been started.
+
+The tone keys always submit the block as typed so far. ㄦ is the rhyme er at
+the start of a block, and 儿化 after a finished final.
+
+* **ABC**, **123** and **☺** toggle the board to English letters (with a
+  one-shot ⇧ for capitals), to full-width digits and punctuation, or to
+  emoji. Pressing the toggle again returns to the script.
+* The keyboard has its own tab. Above it is an editable phonetic area with a
+  caret. Clicking the left or right half of a block puts the caret before or
+  after it, and ◀ ▶ move it. Keys insert at the caret, ⌫ deletes before it,
+  and the block being typed is previewed in place. Clicking a block, or
+  committing one, shows it in the inspector. "Copy to Text tab" sends the
+  written text to the Text tab's input.
+* Key labels show zhuyin, pinyin, or both.
+
+## 10. Known trade-offs
 
 * **乙 (ㄧ) and 乚 (zh, and the -r curl)** share a bottom curve. They differ in
   their top, a horizontal-plus-diagonal against a plain vertical, and in

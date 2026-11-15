@@ -184,6 +184,19 @@ fn syllable_set() -> &'static HashSet<&'static str> {
     SET.get_or_init(|| SYLLABLES.split_whitespace().collect())
 }
 
+/// Every distinct Mandarin syllable (toneless), from the syllable table.
+pub fn valid_syllables() -> Vec<Syllable> {
+    let mut out: Vec<Syllable> = Vec::new();
+    for p in SYLLABLES.split_whitespace() {
+        if let Some(s) = Syllable::from_pinyin(p) {
+            if !out.contains(&s) {
+                out.push(s);
+            }
+        }
+    }
+    out
+}
+
 fn is_vowel_letter(c: char) -> bool {
     matches!(c, 'a' | 'e' | 'i' | 'o' | 'u' | 'ü' | 'ê' | 'v')
 }

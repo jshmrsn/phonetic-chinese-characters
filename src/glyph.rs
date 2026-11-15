@@ -13,14 +13,15 @@
 //! bottom of 坐.
 
 use crate::phonology::{Coda, Consonant, Manner, Place, Syllable, Tone, Vowel, R_IDEA, R_STROKE};
-use std::fmt::Write;
 
 /// Stroke width for components.
 pub const SW: f32 = 5.6;
 /// Stroke width for tone marks.
 pub const TONE_SW: f32 = 4.6;
 
-#[derive(Clone, Copy, Debug)]
+/// One piece of a stroke's centre-line. Inside component definitions the
+/// coordinates are in a unit box; in a `Stroke` they are absolute (0–100).
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Seg {
     M(f32, f32),
     L(f32, f32),
@@ -29,6 +30,10 @@ pub enum Seg {
 use Seg::{L, M, Q};
 
 type Strokes = &'static [&'static [Seg]];
+
+/// One stroke of a laid-out glyph, in absolute em coordinates. It always
+/// starts with `Seg::M`.
+pub type Stroke = Vec<Seg>;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rect {
@@ -73,26 +78,46 @@ impl Rect {
     }
 }
 
-fn emit(strokes: Strokes, g: Rect, out: &mut String) {
+fn emit(strokes: Strokes, g: Rect, out: &mut Vec<Stroke>) {
     for stroke in strokes {
-        for seg in stroke.iter() {
+        out.push(
+            stroke
+                .iter()
+                .map(|seg| match *seg {
+                    M(x, y) => {
+                        let (a, b) = g.pt(x, y);
+                        M(a, b)
+                    }
+                    L(x, y) => {
+                        let (a, b) = g.pt(x, y);
+                        L(a, b)
+                    }
+                    Q(cx, cy, x, y) => {
+                        let (c1, c2) = g.pt(cx, cy);
+                        let (a, b) = g.pt(x, y);
+                        Q(c1, c2, a, b)
+                    }
+                })
+                .collect(),
+        );
+    }
+}
+
+/// Plain SVG path data for strokes (centre-lines), for tests.
+#[cfg(test)]
+pub fn centerline_d(strokes: &[Stroke]) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    for stroke in strokes {
+        for seg in stroke {
             let _ = match *seg {
-                M(x, y) => {
-                    let (a, b) = g.pt(x, y);
-                    write!(out, "M{a:.1} {b:.1}")
-                }
-                L(x, y) => {
-                    let (a, b) = g.pt(x, y);
-                    write!(out, "L{a:.1} {b:.1}")
-                }
-                Q(cx, cy, x, y) => {
-                    let (c1, c2) = g.pt(cx, cy);
-                    let (a, b) = g.pt(x, y);
-                    write!(out, "Q{c1:.1} {c2:.1} {a:.1} {b:.1}")
-                }
+                M(x, y) => write!(out, "M{x:.1} {y:.1}"),
+                L(x, y) => write!(out, "L{x:.1} {y:.1}"),
+                Q(cx, cy, x, y) => write!(out, "Q{cx:.1} {cy:.1} {x:.1} {y:.1}"),
             };
         }
     }
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -275,19 +300,18 @@ fn ending(c: Option<Coda>) -> (Strokes, f32, f32) {
 // Tone marks (absolute coordinates, top centre)
 // ---------------------------------------------------------------------------
 
-fn tone_path(t: Tone) -> Option<String> {
-    let d = match t {
+fn tone_path(t: Tone) -> Option<Stroke> {
+    Some(match t {
         // 横: level
-        Tone::First => "M40 9.5L60 9.5",
+        Tone::First => vec![M(40.0, 9.5), L(60.0, 9.5)],
         // 提: rising from bottom-left to top-right, like pinyin ´
-        Tone::Second => "M44.5 15L55.5 3.5",
+        Tone::Second => vec![M(44.5, 15.0), L(55.5, 3.5)],
         // 点 + 提: down then up, like pinyin ˇ
-        Tone::Third => "M41 4L50 14.5L59 4",
+        Tone::Third => vec![M(41.0, 4.0), L(50.0, 14.5), L(59.0, 4.0)],
         // 点: falling from top-left to bottom-right, like pinyin `
-        Tone::Fourth => "M44.5 3.5L55.5 15",
+        Tone::Fourth => vec![M(44.5, 3.5), L(55.5, 15.0)],
         Tone::Neutral => return None,
-    };
-    Some(d.to_string())
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -325,8 +349,16 @@ impl Role {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Layer {
     pub role: Role,
-    pub d: String,
+    pub strokes: Vec<Stroke>,
+    /// nominal stroke width in em units
     pub width: f32,
+}
+
+/// Number of strokes in a laid-out glyph: (component strokes, tone strokes).
+pub fn stroke_count(layers: &[Layer]) -> (usize, usize) {
+    let tone = layers.iter().filter(|l| l.role == Role::Tone).map(|l| l.strokes.len()).sum();
+    let all: usize = layers.iter().map(|l| l.strokes.len()).sum();
+    (all - tone, tone)
 }
 
 /// Aspect-ratio windows (width / height) per slot.
@@ -345,8 +377,8 @@ mod aspect {
 }
 
 /// Draw a consonant (frame + manner mark) into `r`, honouring `asp`.
-fn consonant_path(c: Consonant, r: Rect, asp: (f32, f32)) -> String {
-    let mut out = String::new();
+fn consonant_path(c: Consonant, r: Rect, asp: (f32, f32)) -> Vec<Stroke> {
+    let mut out = Vec::new();
     let (strokes, inner) = frame(c.place);
     let g = r.fit(asp.0, asp.1).inset(SW / 2.0);
     emit(strokes, g, &mut out);
@@ -357,8 +389,8 @@ fn consonant_path(c: Consonant, r: Rect, asp: (f32, f32)) -> String {
     out
 }
 
-fn vowel_path(v: Vowel, r: Rect, asp: (f32, f32)) -> String {
-    let mut out = String::new();
+fn vowel_path(v: Vowel, r: Rect, asp: (f32, f32)) -> Vec<Stroke> {
+    let mut out = Vec::new();
     emit(vowel_strokes(v), r.fit(asp.0, asp.1).inset(SW / 2.0), &mut out);
     out
 }
@@ -373,7 +405,7 @@ fn glide_aspect(v: Vowel) -> (f32, f32) {
 }
 
 /// Draw endings (coda and/or r) side by side into a flat band.
-fn endings_path(endings: &[Option<Coda>], band: Rect, out: &mut String) {
+fn endings_path(endings: &[Option<Coda>], band: Rect, out: &mut Vec<Stroke>) {
     let gap = 5.0;
     let n = endings.len() as f32;
     let w = (band.w - gap * (n - 1.0)) / n;
@@ -385,8 +417,8 @@ fn endings_path(endings: &[Option<Coda>], band: Rect, out: &mut String) {
 }
 
 /// One rhyme symbol: the vowel, with its ending stroke tucked under it.
-fn rhyme_path(nucleus: Vowel, coda: Option<Coda>, rhotic: bool, r: Rect, asp: (f32, f32)) -> String {
-    let mut out = String::new();
+fn rhyme_path(nucleus: Vowel, coda: Option<Coda>, rhotic: bool, r: Rect, asp: (f32, f32)) -> Vec<Stroke> {
+    let mut out = Vec::new();
     let r = r.fit(asp.0, asp.1);
     let mut endings = Vec::new();
     if coda.is_some() {
@@ -411,8 +443,16 @@ fn rhyme_path(nucleus: Vowel, coda: Option<Coda>, rhotic: bool, r: Rect, asp: (f
     out
 }
 
-fn layer(role: Role, d: String) -> Layer {
-    Layer { role, d, width: SW }
+/// ㄧ ㄨ ㄩ always count as medials, even when one is the whole final (yi, ju).
+fn vowel_role(v: Vowel) -> Role {
+    match v {
+        Vowel::I | Vowel::U | Vowel::Yu => Role::Medial,
+        _ => Role::Rhyme,
+    }
+}
+
+fn layer(role: Role, strokes: Vec<Stroke>) -> Layer {
+    Layer { role, strokes, width: SW }
 }
 
 const BODY_TOP: f32 = 21.0;
@@ -421,8 +461,8 @@ const BODY_H: f32 = 76.0;
 /// Lay out one syllable as a list of stroke layers.
 pub fn syllable_layers(s: &Syllable) -> Vec<Layer> {
     let mut layers = Vec::new();
-    if let Some(d) = tone_path(s.tone) {
-        layers.push(Layer { role: Role::Tone, d, width: TONE_SW });
+    if let Some(t) = tone_path(s.tone) {
+        layers.push(Layer { role: Role::Tone, strokes: vec![t], width: TONE_SW });
     }
     let has_final = s.nucleus.is_some() || s.coda.is_some() || s.medial.is_some();
     match (s.initial, has_final) {
@@ -438,7 +478,7 @@ pub fn syllable_layers(s: &Syllable) -> Vec<Layer> {
             if s.rhotic {
                 let top = Rect::new(14.0, BODY_TOP, 72.0, 52.0);
                 layers.push(layer(Role::Initial, consonant_path(c, top, (0.9, 1.6))));
-                let mut d = String::new();
+                let mut d = Vec::new();
                 endings_path(&[None], Rect::new(26.0, BODY_TOP + 57.0, 48.0, 19.0), &mut d);
                 layers.push(layer(Role::Rhyme, d));
             } else {
@@ -482,7 +522,7 @@ fn final_layers(s: &Syllable, rect: Rect, beside_initial: bool, layers: &mut Vec
         None => {
             let asp = if beside_initial { aspect::RHYME_SIDE } else { aspect::RHYME_ALONE };
             let d = rhyme_path(nucleus, s.coda, s.rhotic, rect, asp);
-            layers.push(layer(Role::Rhyme, d));
+            layers.push(layer(vowel_role(nucleus), d));
         }
     }
 }
@@ -512,7 +552,7 @@ pub fn part_layers(p: Part) -> Vec<Layer> {
             consonant_path(c, Rect::new(16.0, 12.0, 68.0, 76.0), aspect::INITIAL_ALONE),
         )],
         Part::Vowel(v) => vec![layer(
-            Role::Rhyme,
+            vowel_role(v),
             vowel_path(v, Rect::new(12.0, 12.0, 76.0, 76.0), aspect::RHYME_ALONE),
         )],
         Part::Glide(v) => vec![layer(
@@ -524,62 +564,41 @@ pub fn part_layers(p: Part) -> Vec<Layer> {
             rhyme_path(v, c, r, Rect::new(12.0, 12.0, 76.0, 76.0), aspect::RHYME_ALONE),
         )],
         Part::Ending(e) => {
-            let mut d = String::new();
+            let mut d = Vec::new();
             endings_path(&[e], Rect::new(14.0, 32.0, 72.0, 36.0), &mut d);
             vec![layer(Role::Rhyme, d)]
         }
         Part::Tone(t) => tone_path(t)
-            .map(|d| {
+            .map(|stroke| {
                 // scale the mark up so it reads on its own
-                let scaled = scale_path(&d, 50.0, 9.0, 3.4, 50.0, 50.0);
-                vec![Layer { role: Role::Tone, d: scaled, width: SW }]
+                let scaled = scale_stroke(&stroke, (50.0, 9.0), 3.4, (50.0, 50.0));
+                vec![Layer { role: Role::Tone, strokes: vec![scaled], width: SW }]
             })
             .unwrap_or_default(),
     }
 }
 
-/// Scale an absolute M/L path around (cx, cy) and move it to (tx, ty).
-fn scale_path(d: &str, cx: f32, cy: f32, k: f32, tx: f32, ty: f32) -> String {
-    let mut out = String::new();
-    let mut num = String::new();
-    let mut nums: Vec<f32> = Vec::new();
-    let mut cmd = ' ';
-    let flush = |cmd: char, nums: &mut Vec<f32>, out: &mut String| {
-        if cmd == ' ' {
-            return;
-        }
-        out.push(cmd);
-        for (i, v) in nums.iter().enumerate() {
-            let t = if i % 2 == 0 { (v - cx) * k + tx } else { (v - cy) * k + ty };
-            if i > 0 {
-                out.push(' ');
+/// Scale a stroke by `k` around `from`, and move that point to `to`.
+fn scale_stroke(stroke: &Stroke, from: (f32, f32), k: f32, to: (f32, f32)) -> Stroke {
+    let f = |x: f32, y: f32| ((x - from.0) * k + to.0, (y - from.1) * k + to.1);
+    stroke
+        .iter()
+        .map(|seg| match *seg {
+            M(x, y) => {
+                let (a, b) = f(x, y);
+                M(a, b)
             }
-            let _ = write!(out, "{t:.1}");
-        }
-        nums.clear();
-    };
-    for ch in d.chars() {
-        if ch.is_ascii_alphabetic() {
-            if !num.is_empty() {
-                nums.push(num.parse().unwrap_or(0.0));
-                num.clear();
+            L(x, y) => {
+                let (a, b) = f(x, y);
+                L(a, b)
             }
-            flush(cmd, &mut nums, &mut out);
-            cmd = ch;
-        } else if ch == ' ' {
-            if !num.is_empty() {
-                nums.push(num.parse().unwrap_or(0.0));
-                num.clear();
+            Q(cx, cy, x, y) => {
+                let (c1, c2) = f(cx, cy);
+                let (a, b) = f(x, y);
+                Q(c1, c2, a, b)
             }
-        } else {
-            num.push(ch);
-        }
-    }
-    if !num.is_empty() {
-        nums.push(num.parse().unwrap_or(0.0));
-    }
-    flush(cmd, &mut nums, &mut out);
-    out
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -630,13 +649,16 @@ pub fn describe(s: &Syllable) -> Vec<PartInfo> {
                 component.push_str(&format!(" + {R_STROKE}"));
                 notes.push(R_IDEA);
             }
-            let note = if notes.is_empty() {
+            let role = vowel_role(n);
+            let note = if role == Role::Medial {
+                "the glide is the whole final".to_string()
+            } else if notes.is_empty() {
                 format!("the vowel {} on its own", n.pinyin())
             } else {
                 format!("one symbol: {} plus {}", n.pinyin(), notes.join("; "))
             };
             let sound = format!("{} {}", s.rhyme_zhuyin(), s.rhyme_name());
-            v.push(PartInfo { role: Role::Rhyme, sound, component, note });
+            v.push(PartInfo { role, sound, component, note });
         }
         None => match s.coda.and_then(|c| c.consonant()) {
             Some(k) => v.push(PartInfo {
@@ -678,7 +700,8 @@ mod tests {
                 let layers = syllable_layers(&s);
                 assert!(!layers.is_empty(), "{key}");
                 for l in layers {
-                    assert!(!l.d.contains("NaN"), "{key}: {}", l.d);
+                    let d = centerline_d(&l.strokes);
+                    assert!(!d.contains("NaN"), "{key}: {d}");
                 }
             }
         }
@@ -692,7 +715,15 @@ mod tests {
     }
 
     #[test]
-    fn scale_path_works() {
-        assert_eq!(scale_path("M40 9.5L60 9.5", 50.0, 9.0, 2.0, 50.0, 50.0), "M30.0 51.0L70.0 51.0");
+    fn scale_stroke_works() {
+        let s = scale_stroke(&vec![M(40.0, 9.5), L(60.0, 9.5)], (50.0, 9.0), 2.0, (50.0, 50.0));
+        assert_eq!(centerline_d(&[s]), "M30.0 51.0L70.0 51.0");
+    }
+
+    #[test]
+    fn counts_strokes() {
+        // hǎo: 𠃌 + 丿 (h), 八 + 卧钩 (ao), and the tone mark
+        let s = Syllable::from_pinyin("hao").unwrap().with_tone(Tone::Third);
+        assert_eq!(stroke_count(&syllable_layers(&s)), (5, 1));
     }
 }

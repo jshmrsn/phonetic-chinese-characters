@@ -1,7 +1,11 @@
+mod brush;
+mod hanzi;
+mod keyboard;
 mod glyph;
 mod parse;
 mod phonology;
 
+use brush::Brush;
 use dioxus::prelude::*;
 use glyph::{Layer, Part, Role};
 use parse::{Item, SylItem};
@@ -65,14 +69,22 @@ fn syl(p: &str) -> Syllable {
         .unwrap_or_else(Syllable::empty)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Tab {
+    Text,
+    Keyboard,
+}
+
 #[component]
 fn App() -> Element {
     let mut input = use_signal(|| EXAMPLES[0].1.to_string());
-    let mut size = use_signal(|| 84u32);
-    let mut captions = use_signal(|| Captions::Zhuyin);
-    let mut colorize = use_signal(|| false);
-    let mut sandhi = use_signal(|| false);
+    let size = use_signal(|| 84u32);
+    let captions = use_signal(|| Captions::Zhuyin);
+    let colorize = use_signal(|| false);
+    let sandhi = use_signal(|| false);
     let mut selected = use_signal(|| None::<usize>);
+    use_context_provider(|| Signal::new(Brush::PEN));
+    let mut tab = use_signal(|| Tab::Text);
 
     let items = use_memo(move || {
         let mut items = parse::convert(&input.read());
@@ -87,6 +99,7 @@ fn App() -> Element {
         _ => None,
     });
     let syllable_count = items.read().iter().filter(|i| matches!(i, Item::Syl(_))).count();
+    let pane = |t: Tab| if tab() == t { "tab-pane" } else { "tab-pane inactive" };
 
     rsx! {
         document::Title { "音块 Yīnkuài" }
@@ -103,19 +116,39 @@ fn App() -> Element {
                 }
             }
 
-            section { class: "panel input-panel",
-                label { r#for: "src", "Type or paste Hanzi, pinyin (marks or numbers) or zhuyin" }
-                textarea {
-                    id: "src",
-                    spellcheck: "false",
-                    rows: "4",
-                    value: "{input}",
-                    oninput: move |e| {
-                        input.set(e.value());
-                        selected.set(None);
-                    },
+            nav { class: "tabs", role: "tablist",
+                button {
+                    class: if tab() == Tab::Text { "tab active" } else { "tab" },
+                    role: "tab",
+                    onclick: move |_| tab.set(Tab::Text),
+                    span { class: "tab-zh", "文 → 块" }
+                    "Text"
                 }
-                div { class: "toolbar",
+                button {
+                    class: if tab() == Tab::Keyboard { "tab active" } else { "tab" },
+                    role: "tab",
+                    onclick: move |_| tab.set(Tab::Keyboard),
+                    span { class: "tab-zh", "⌨" }
+                    "Keyboard"
+                }
+            }
+
+            DisplayBar { size, captions, colorize, sandhi }
+
+            // both tabs stay mounted, so switching never loses what was typed
+            div { class: pane(Tab::Text),
+                section { class: "panel input-panel",
+                    label { r#for: "src", "Type or paste Hanzi, pinyin (marks or numbers) or zhuyin" }
+                    textarea {
+                        id: "src",
+                        spellcheck: "false",
+                        rows: "4",
+                        value: "{input}",
+                        oninput: move |e| {
+                            input.set(e.value());
+                            selected.set(None);
+                        },
+                    }
                     div { class: "examples",
                         span { class: "muted", "Examples:" }
                         for (name , text) in EXAMPLES.iter() {
@@ -129,67 +162,37 @@ fn App() -> Element {
                             }
                         }
                     }
-                    div { class: "toggles",
-                        select {
-                            class: "caption-select",
-                            "aria-label": "Captions",
-                            value: "{captions().key()}",
-                            onchange: move |e| captions.set(Captions::from_key(&e.value())),
-                            for c in Captions::ALL {
-                                option { value: "{c.key()}", selected: captions() == c, "{c.label()}" }
-                            }
+                }
+                div { class: "workspace",
+                    section { class: if colorize() { "panel output-panel colorize" } else { "panel output-panel" },
+                        div { class: "output-head",
+                            span { class: "muted", "{syllable_count} syllables" }
                         }
-                        label { class: "toggle",
-                            input {
-                                r#type: "checkbox",
-                                checked: colorize(),
-                                onchange: move |e| colorize.set(e.checked()),
-                            }
-                            "Colour by part"
-                        }
-                        label { class: "toggle",
-                            title: "Show spoken tones (3-3 → 2-3, 一 and 不 changes). Changed marks turn orange.",
-                            input {
-                                r#type: "checkbox",
-                                checked: sandhi(),
-                                onchange: move |e| sandhi.set(e.checked()),
-                            }
-                            "Tone sandhi"
-                        }
-                        label { class: "toggle size",
-                            "Size"
-                            input {
-                                r#type: "range",
-                                min: "40",
-                                max: "160",
-                                value: "{size}",
-                                oninput: move |e| size.set(e.value().parse().unwrap_or(84)),
+                        div { class: "output",
+                            for (i , item) in items.read().iter().enumerate() {
+                                ItemView {
+                                    key: "{i}",
+                                    item: item.clone(),
+                                    index: i,
+                                    size: size(),
+                                    captions: captions(),
+                                    selected: selected() == Some(i),
+                                    on_select: move |i| selected.set(Some(i)),
+                                }
                             }
                         }
                     }
+                    Inspector { item: selected_item }
                 }
             }
 
-            div { class: "workspace",
-                section { class: if colorize() { "panel output-panel colorize" } else { "panel output-panel" },
-                    div { class: "output-head",
-                        span { class: "muted", "{syllable_count} syllables" }
-                    }
-                    div { class: "output",
-                        for (i , item) in items.read().iter().enumerate() {
-                            ItemView {
-                                key: "{i}",
-                                item: item.clone(),
-                                index: i,
-                                size: size(),
-                                captions: captions(),
-                                selected: selected() == Some(i),
-                                on_select: move |i| selected.set(Some(i)),
-                            }
-                        }
-                    }
+            div { class: pane(Tab::Keyboard),
+                KeyboardTab {
+                    input,
+                    size: size(),
+                    captions: captions(),
+                    colorize: colorize(),
                 }
-                Inspector { item: selected_item }
             }
 
             Reference {}
@@ -205,20 +208,723 @@ fn App() -> Element {
     }
 }
 
+/// Settings shared by both tabs: captions, colour, size and the brush.
+#[component]
+fn DisplayBar(
+    mut size: Signal<u32>,
+    mut captions: Signal<Captions>,
+    mut colorize: Signal<bool>,
+    mut sandhi: Signal<bool>,
+) -> Element {
+    let mut brush = use_context::<Signal<Brush>>();
+    let mut hand = use_signal(|| 0.5f32);
+    rsx! {
+        section { class: "panel display-panel",
+            div { class: "toggles",
+                select {
+                    class: "caption-select",
+                    "aria-label": "Captions",
+                    value: "{captions().key()}",
+                    onchange: move |e| captions.set(Captions::from_key(&e.value())),
+                    for c in Captions::ALL {
+                        option { value: "{c.key()}", selected: captions() == c, "{c.label()}" }
+                    }
+                }
+                label { class: "toggle",
+                    input {
+                        r#type: "checkbox",
+                        checked: colorize(),
+                        onchange: move |e| colorize.set(e.checked()),
+                    }
+                    "Colour by part"
+                }
+                label { class: "toggle",
+                    title: "Show spoken tones in the Text tab (3-3 → 2-3, 一 and 不 changes). Changed marks turn orange.",
+                    input {
+                        r#type: "checkbox",
+                        checked: sandhi(),
+                        onchange: move |e| sandhi.set(e.checked()),
+                    }
+                    "Tone sandhi"
+                }
+                label { class: "toggle size",
+                    "Size"
+                    input {
+                        r#type: "range",
+                        min: "40",
+                        max: "160",
+                        value: "{size}",
+                        oninput: move |e| size.set(e.value().parse().unwrap_or(84)),
+                    }
+                }
+                span { class: "divider" }
+                span { class: "brush-title", "Brush" }
+                for (name , preset , h) in [("Geometric", Brush::GEOMETRIC, 0.0f32), ("Pen", Brush::PEN, 0.5), ("Brush", Brush::BRUSH, 1.0)] {
+                    button {
+                        class: if brush() == preset { "chip active" } else { "chip" },
+                        onclick: move |_| {
+                            brush.set(preset);
+                            hand.set(h);
+                        },
+                        "{name}"
+                    }
+                }
+                label { class: "toggle hand",
+                    span { class: "muted", "geometric" }
+                    input {
+                        r#type: "range",
+                        min: "0",
+                        max: "100",
+                        value: "{(hand() * 100.0).round()}",
+                        oninput: move |e| {
+                            let v = e.value().parse::<f32>().unwrap_or(50.0) / 100.0;
+                            hand.set(v);
+                            brush.set(Brush::hand(v));
+                        },
+                    }
+                    span { class: "muted", "handwritten" }
+                }
+            }
+            details { class: "knobs",
+                summary { "Fine-tune the brush" }
+                div { class: "knob-grid",
+                    Knob {
+                        label: "Weight",
+                        hint: "overall stroke thickness",
+                        value: brush().weight,
+                        min: 0.6,
+                        max: 1.5,
+                        on_change: move |v| brush.with_mut(|b| b.weight = v),
+                    }
+                    Knob {
+                        label: "Pressure",
+                        hint: "thick–thin contrast: slim waists, heavy verticals, swelling 捺 feet",
+                        value: brush().pressure,
+                        on_change: move |v| brush.with_mut(|b| b.pressure = v),
+                    }
+                    Knob {
+                        label: "Taper",
+                        hint: "pointed tips on 撇, 提 and hooks; teardrop 点",
+                        value: brush().taper,
+                        on_change: move |v| brush.with_mut(|b| b.taper = v),
+                    }
+                    Knob {
+                        label: "Pauses 顿笔",
+                        hint: "pressed heads and tails on 横 and 竖, pressed corners on 折",
+                        value: brush().pause,
+                        on_change: move |v| brush.with_mut(|b| b.pause = v),
+                    }
+                    Knob {
+                        label: "Arcs",
+                        hint: "bowed strokes, deeper curves, horizontals rising to the right",
+                        value: brush().arc,
+                        on_change: move |v| brush.with_mut(|b| b.arc = v),
+                    }
+                    Knob {
+                        label: "Hooks 钩",
+                        hint: "how far hooks flick out",
+                        value: brush().hook,
+                        on_change: move |v| brush.with_mut(|b| b.hook = v),
+                    }
+                    Knob {
+                        label: "Wobble",
+                        hint: "an unsteady hand",
+                        value: brush().wobble,
+                        on_change: move |v| brush.with_mut(|b| b.wobble = v),
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Keyboard tab: an editable phonetic area, the inspector and the keyboard
+// ---------------------------------------------------------------------------
+
+/// What the keyboard has written so far.
+#[derive(Clone, Debug, PartialEq)]
+enum Written {
+    Syl(Syllable),
+    /// digits, punctuation, emoji, English letters
+    Text(String),
+    Space,
+    Newline,
+}
+
+/// Which board the keyboard shows.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Board {
+    Letters,
+    Latin,
+    Numbers,
+    Emoji,
+}
+
+/// What to print under each key.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum KeyLabels {
+    Zhuyin,
+    Pinyin,
+    Both,
+}
+
+/// The editable phonetic area: what has been written, where the caret is,
+/// which block the inspector shows, and the block being typed.
+#[derive(Clone, Copy, PartialEq)]
+struct Pad {
+    written: Signal<Vec<Written>>,
+    /// insertion point, 0..=written.len()
+    cursor: Signal<usize>,
+    selected: Signal<Option<usize>>,
+    typed: Signal<Vec<keyboard::Key>>,
+    rhotic: Signal<bool>,
+}
+
+impl Pad {
+    fn caret(&self) -> usize {
+        (self.cursor)().min(self.written.read().len())
+    }
+
+    /// Insert at the caret and move the caret past it.
+    fn insert(mut self, w: Written) {
+        let c = self.caret();
+        self.written.write().insert(c, w);
+        self.cursor.set(c + 1);
+        if let Some(s) = (self.selected)() {
+            if s >= c {
+                self.selected.set(Some(s + 1));
+            }
+        }
+    }
+
+    /// Turn the keys typed so far (with tone `t`) into a block at the caret.
+    fn commit(mut self, t: Tone) {
+        if self.typed.read().is_empty() {
+            return;
+        }
+        let s = keyboard::compose(&self.typed.read(), (self.rhotic)(), t);
+        let at = self.caret();
+        self.insert(Written::Syl(s));
+        self.selected.set(Some(at));
+        self.typed.set(Vec::new());
+        self.rhotic.set(false);
+    }
+
+    /// Insert text (or a space / line break) at the caret, first finishing
+    /// any half-typed block.
+    fn insert_text(self, w: Written) {
+        self.commit(Tone::Neutral);
+        self.insert(w);
+    }
+
+    fn press(mut self, slot: keyboard::Slot) {
+        match slot {
+            keyboard::Slot::Tone(t) => self.commit(t),
+            keyboard::Slot::Key(k) => {
+                let next = keyboard::next_keys(&self.typed.read());
+                if k == keyboard::ER && !next.contains(&k) {
+                    self.rhotic.set(true);
+                } else {
+                    self.typed.write().push(k);
+                }
+            }
+        }
+    }
+
+    /// Undo the last key of the block being typed, or delete before the caret.
+    fn backspace(mut self) {
+        if (self.rhotic)() {
+            self.rhotic.set(false);
+        } else if !self.typed.read().is_empty() {
+            self.typed.write().pop();
+        } else {
+            let c = self.caret();
+            if c == 0 {
+                return;
+            }
+            self.written.write().remove(c - 1);
+            self.cursor.set(c - 1);
+            match (self.selected)() {
+                Some(s) if s == c - 1 => self.selected.set(None),
+                Some(s) if s > c - 1 => self.selected.set(Some(s - 1)),
+                _ => {}
+            }
+        }
+    }
+
+    fn move_caret(mut self, delta: isize) {
+        let len = self.written.read().len() as isize;
+        let c = (self.caret() as isize + delta).clamp(0, len);
+        self.cursor.set(c as usize);
+    }
+
+    fn clear(mut self) {
+        self.written.set(Vec::new());
+        self.cursor.set(0);
+        self.selected.set(None);
+        self.typed.set(Vec::new());
+        self.rhotic.set(false);
+    }
+}
+
+fn written_text(w: &[Written]) -> String {
+    w.iter()
+        .map(|w| match w {
+            Written::Syl(s) => keyboard::commit_text(s),
+            Written::Text(t) => t.clone(),
+            Written::Space => " ".to_string(),
+            Written::Newline => "\n".to_string(),
+        })
+        .collect()
+}
+
+#[component]
+fn KeyboardTab(input: Signal<String>, size: u32, captions: Captions, colorize: bool) -> Element {
+    let pad = Pad {
+        written: use_signal(Vec::new),
+        cursor: use_signal(|| 0),
+        selected: use_signal(|| None),
+        typed: use_signal(Vec::new),
+        rhotic: use_signal(|| false),
+    };
+    let selected_item = (pad.selected)().and_then(|i| match pad.written.read().get(i) {
+        Some(Written::Syl(s)) => Some(SylItem {
+            syl: *s,
+            source: s.zhuyin(),
+            origin: parse::Origin::Zhuyin,
+            sandhi_from: None,
+        }),
+        _ => None,
+    });
+    rsx! {
+        div { class: "workspace",
+            PadView { pad, size, captions, colorize }
+            Inspector { item: selected_item }
+        }
+        Keyboard { pad, input }
+    }
+}
+
+/// The phonetic area of the Keyboard tab. Clicking the left or right half of
+/// a block puts the caret before or after it (and shows it in the inspector);
+/// clicking empty space puts the caret at the end.
+#[component]
+fn PadView(pad: Pad, size: u32, captions: Captions, colorize: bool) -> Element {
+    let written = pad.written.read().clone();
+    let n = written.len();
+    let caret = pad.caret();
+    let typed = pad.typed.read().clone();
+    let composing = (!typed.is_empty()).then(|| keyboard::compose(&typed, (pad.rhotic)(), Tone::Neutral));
+    let selected = (pad.selected)();
+    let blocks = written.iter().filter(|w| matches!(w, Written::Syl(_))).count();
+    let mut cursor = pad.cursor;
+    rsx! {
+        section { class: if colorize { "panel output-panel pad-panel colorize" } else { "panel output-panel pad-panel" },
+            div { class: "output-head",
+                span { class: "muted",
+                    "{blocks} blocks · click the left or right half of a block to put the caret there"
+                }
+            }
+            div { class: "output pad", onclick: move |_| cursor.set(n),
+                for i in 0..=n {
+                    if i == caret {
+                        if let Some(c) = composing {
+                            span { class: "pad-composing",
+                                Glyph { syl: c, size }
+                            }
+                        }
+                        span { class: "pad-caret", style: "height: {size * 3 / 4}px;" }
+                    }
+                    if i < n {
+                        PadItem {
+                            w: written[i].clone(),
+                            index: i,
+                            size,
+                            captions,
+                            selected: selected == Some(i),
+                            pad,
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn PadItem(w: Written, index: usize, size: u32, captions: Captions, selected: bool, pad: Pad) -> Element {
+    let (mut cursor, mut sel) = (pad.cursor, pad.selected);
+    let is_block = matches!(w, Written::Syl(_));
+    let mut pick = move |e: MouseEvent, after: bool| {
+        e.stop_propagation();
+        cursor.set(if after { index + 1 } else { index });
+        if is_block {
+            sel.set(Some(index));
+        }
+    };
+    let body = match &w {
+        Written::Syl(s) => {
+            let zhuyin = s.zhuyin();
+            let pinyin = s.pinyin();
+            let show_zhuyin = matches!(captions, Captions::Zhuyin | Captions::Both);
+            let show_pinyin = matches!(captions, Captions::Pinyin | Captions::Both);
+            rsx! {
+                Glyph { syl: *s, size }
+                if show_zhuyin {
+                    span { class: "cap zhuyin", "{zhuyin}" }
+                }
+                if show_pinyin {
+                    span { class: "cap", "{pinyin}" }
+                }
+            }
+        }
+        Written::Text(t) => {
+            let fs = size as f32 * 0.5;
+            rsx! {
+                span { class: "pad-text", style: "height: {size}px; font-size: {fs}px;", "{t}" }
+            }
+        }
+        Written::Space => {
+            let wpx = size / 4;
+            rsx! {
+                span { class: "pad-space", style: "width: {wpx}px; height: {size}px;" }
+            }
+        }
+        Written::Newline => {
+            return rsx! {
+                div { class: "break" }
+            };
+        }
+    };
+    rsx! {
+        span { class: if selected { "pad-item selected" } else { "pad-item" },
+            {body}
+            button {
+                class: "hit left",
+                "aria-label": "put the caret before this",
+                onclick: move |e| pick(e, false),
+            }
+            button {
+                class: "hit right",
+                "aria-label": "put the caret after this",
+                onclick: move |e| pick(e, true),
+            }
+        }
+    }
+}
+
+/// A touch keyboard for the script. Its keys are the script's own components
+/// on a layout adapted from the zhuyin (大千) keyboard. Keys that cannot
+/// continue the block being typed are disabled (Fixed) or hidden (Dynamic).
+/// A tone key submits the block at the caret.
+#[component]
+fn Keyboard(pad: Pad, input: Signal<String>) -> Element {
+    let mut key_labels = use_signal(|| KeyLabels::Zhuyin);
+    let mut board = use_signal(|| Board::Letters);
+    let mut shift = use_signal(|| false);
+    let mut dynamic = use_signal(|| false);
+
+    let current = pad.typed.read().clone();
+    let rhotic = (pad.rhotic)();
+    let next = keyboard::next_keys(&current);
+    let complete = keyboard::is_complete(&current);
+    let can_r = !rhotic && keyboard::can_add_r(&current);
+    let has_typed = !current.is_empty();
+    let preview = keyboard::compose(&current, rhotic, Tone::Neutral);
+    let status = if !has_typed {
+        "Type a block: initial, medial, rhyme, then a tone.".to_string()
+    } else {
+        let mut z: String = current.iter().map(|k| k.zhuyin()).collect();
+        if rhotic {
+            z.push('ㄦ');
+        }
+        if complete || rhotic {
+            format!("{z} · {}: pick a tone", preview.pinyin_plain())
+        } else {
+            format!("{z} · keep going, or press a tone to submit it as it is")
+        }
+    };
+    // every key with whether it can continue the block; the Dynamic layout
+    // drops the ones that cannot
+    let rows: Vec<Vec<(keyboard::Slot, bool)>> = keyboard::layout()
+        .into_iter()
+        .map(|row| {
+            row.into_iter()
+                .map(|slot| {
+                    let enabled = match slot {
+                        keyboard::Slot::Tone(_) => has_typed,
+                        keyboard::Slot::Key(k) => next.contains(&k) || (k == keyboard::ER && can_r),
+                    };
+                    (slot, enabled)
+                })
+                .filter(|(_, enabled)| *enabled || !dynamic())
+                .collect()
+        })
+        .collect();
+    let labels = key_labels();
+    let on_press = move |slot: keyboard::Slot| pad.press(slot);
+    let pad_empty = pad.written.read().is_empty();
+
+    rsx! {
+        section { class: "panel keyboard colorize",
+            div { class: "kb-head",
+                h3 { "Keyboard" }
+                span { class: "kb-status", "{status}" }
+                div { class: "kb-tools",
+                    div { class: "segmented", role: "group", "aria-label": "Keyboard layout",
+                        button {
+                            class: if dynamic() { "seg" } else { "seg active" },
+                            title: "keys stay in place; impossible ones are disabled",
+                            onclick: move |_| dynamic.set(false),
+                            "Fixed"
+                        }
+                        button {
+                            class: if dynamic() { "seg active" } else { "seg" },
+                            title: "only the keys that can continue the block are shown",
+                            onclick: move |_| dynamic.set(true),
+                            "Dynamic"
+                        }
+                    }
+                    select {
+                        class: "caption-select",
+                        "aria-label": "Key labels",
+                        onchange: move |e| {
+                            key_labels
+                                .set(
+                                    match e.value().as_str() {
+                                        "pinyin" => KeyLabels::Pinyin,
+                                        "both" => KeyLabels::Both,
+                                        _ => KeyLabels::Zhuyin,
+                                    },
+                                )
+                        },
+                        option { value: "zhuyin", selected: labels == KeyLabels::Zhuyin, "Zhuyin labels" }
+                        option { value: "pinyin", selected: labels == KeyLabels::Pinyin, "Pinyin labels" }
+                        option { value: "both", selected: labels == KeyLabels::Both, "Zhuyin + pinyin" }
+                    }
+                    button {
+                        class: "chip",
+                        disabled: pad_empty,
+                        title: "append what is written here to the Text tab",
+                        onclick: move |_| {
+                            let text = written_text(&pad.written.read());
+                            input.write().push_str(&text);
+                        },
+                        "Copy to Text tab"
+                    }
+                    button {
+                        class: "chip",
+                        disabled: pad_empty && !has_typed,
+                        onclick: move |_| pad.clear(),
+                        "Clear"
+                    }
+                }
+            }
+            div { class: "kb-board",
+                for (r , row) in rows.into_iter().enumerate() {
+                    // in Dynamic mode an emptied row collapses (row 4 keeps ABC and ⌫)
+                    if !(board() == Board::Letters && row.is_empty() && r != 3) {
+                        div { class: "kb-row",
+                            if r == 3 {
+                                button {
+                                    class: if board() == Board::Latin { "kb-key kb-fn kb-toggle active" } else { "kb-key kb-fn kb-toggle" },
+                                    title: "English letters",
+                                    onclick: move |_| board.set(if board() == Board::Latin { Board::Letters } else { Board::Latin }),
+                                    "ABC"
+                                }
+                            }
+                            if r == 2 && board() == Board::Latin {
+                                button {
+                                    class: if shift() { "kb-key kb-fn kb-toggle active" } else { "kb-key kb-fn kb-toggle" },
+                                    title: "capital letter",
+                                    onclick: move |_| shift.set(!shift()),
+                                    "⇧"
+                                }
+                            }
+                            match board() {
+                                Board::Letters => rsx! {
+                                    for (slot , enabled) in row {
+                                        KeySlot { slot, enabled, labels, on_press }
+                                    }
+                                },
+                                other => {
+                                    let chars = match other {
+                                        Board::Numbers => keyboard::NUMBERS[r],
+                                        Board::Latin => keyboard::LATIN[r],
+                                        _ => keyboard::EMOJI[r],
+                                    };
+                                    let caps = other == Board::Latin && shift();
+                                    rsx! {
+                                        for t in chars.split_whitespace() {
+                                            button {
+                                                class: match other {
+                                                    Board::Emoji => "kb-key kb-char emoji",
+                                                    Board::Latin => "kb-key kb-char latin",
+                                                    _ => "kb-key kb-char",
+                                                },
+                                                onclick: move |_| {
+                                                    let text = if caps { t.to_uppercase() } else { t.to_string() };
+                                                    pad.insert_text(Written::Text(text));
+                                                    shift.set(false);
+                                                },
+                                                if caps {
+                                                    "{t.to_uppercase()}"
+                                                } else {
+                                                    "{t}"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if r == 3 {
+                                button {
+                                    class: "kb-key kb-fn",
+                                    title: "undo the last key, or delete before the caret",
+                                    onclick: move |_| pad.backspace(),
+                                    "⌫"
+                                }
+                            }
+                        }
+                    }
+                }
+                div { class: "kb-row",
+                    button {
+                        class: if board() == Board::Numbers { "kb-key kb-fn kb-toggle active" } else { "kb-key kb-fn kb-toggle" },
+                        title: "numbers and punctuation",
+                        onclick: move |_| board.set(if board() == Board::Numbers { Board::Letters } else { Board::Numbers }),
+                        "123"
+                    }
+                    button {
+                        class: if board() == Board::Emoji { "kb-key kb-fn kb-toggle active" } else { "kb-key kb-fn kb-toggle" },
+                        title: "emoji",
+                        onclick: move |_| board.set(if board() == Board::Emoji { Board::Letters } else { Board::Emoji }),
+                        "☺"
+                    }
+                    button {
+                        class: "kb-key kb-fn kb-space",
+                        title: "a space between words",
+                        onclick: move |_| pad.insert_text(Written::Space),
+                        "space"
+                    }
+                    button {
+                        class: "kb-key kb-fn",
+                        title: "move the caret left",
+                        onclick: move |_| pad.move_caret(-1),
+                        "◀"
+                    }
+                    button {
+                        class: "kb-key kb-fn",
+                        title: "move the caret right",
+                        onclick: move |_| pad.move_caret(1),
+                        "▶"
+                    }
+                    button {
+                        class: "kb-key kb-fn",
+                        title: "new line",
+                        onclick: move |_| pad.insert_text(Written::Newline),
+                        "⏎"
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn KeySlot(
+    slot: keyboard::Slot,
+    enabled: bool,
+    labels: KeyLabels,
+    on_press: EventHandler<keyboard::Slot>,
+) -> Element {
+    let (part, label, class) = match slot {
+        keyboard::Slot::Key(k) => {
+            let part = match k {
+                keyboard::Key::Initial(c) => Part::Consonant(c),
+                keyboard::Key::Glide(v) => Part::Vowel(v),
+                keyboard::Key::Rhyme(v, c, r) => Part::Rhyme(v, c, r),
+            };
+            let label = match labels {
+                KeyLabels::Zhuyin => k.zhuyin().to_string(),
+                KeyLabels::Pinyin => k.pinyin(),
+                KeyLabels::Both => format!("{} {}", k.zhuyin(), k.pinyin()),
+            };
+            (part, label, "kb-key")
+        }
+        keyboard::Slot::Tone(t) => {
+            let mark = match t {
+                Tone::First => "ˉ",
+                Tone::Second => "ˊ",
+                Tone::Third => "ˇ",
+                Tone::Fourth => "ˋ",
+                Tone::Neutral => "˙",
+            };
+            let label = match labels {
+                KeyLabels::Zhuyin => mark.to_string(),
+                KeyLabels::Pinyin => format!("tone {}", t.number()),
+                KeyLabels::Both => format!("{mark} {}", t.number()),
+            };
+            (Part::Tone(t), label, "kb-key kb-tone")
+        }
+    };
+    rsx! {
+        button { class, disabled: !enabled, onclick: move |_| on_press.call(slot),
+            PartGlyph { part, size: 36 }
+            span { class: "kb-zy", "{label}" }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Glyph rendering
 // ---------------------------------------------------------------------------
 
 #[component]
+fn Knob(
+    label: &'static str,
+    hint: &'static str,
+    value: f32,
+    #[props(default = 0.0)] min: f32,
+    #[props(default = 1.0)] max: f32,
+    on_change: EventHandler<f32>,
+) -> Element {
+    let step = (max - min) / 100.0;
+    let shown = if max > 1.0 { format!("{value:.2}×") } else { format!("{:.0}", value * 100.0) };
+    rsx! {
+        label { class: "knob", title: "{hint}",
+            div { class: "knob-head",
+                span { "{label}" }
+                span { class: "muted", "{shown}" }
+            }
+            input {
+                r#type: "range",
+                min: "{min}",
+                max: "{max}",
+                step: "{step}",
+                value: "{value}",
+                oninput: move |e| on_change.call(e.value().parse().unwrap_or(value)),
+            }
+            div { class: "knob-hint", "{hint}" }
+        }
+    }
+}
+
+/// Draws laid-out strokes with the current brush (from context).
+#[component]
 fn Svg(layers: Vec<Layer>, size: u32, #[props(default)] sandhi: bool) -> Element {
-    let paths: Vec<(String, String, f32)> = layers
+    let brush = use_context::<Signal<Brush>>();
+    let b = brush();
+    let paths: Vec<(String, String)> = layers
         .iter()
-        .map(|l| {
+        .enumerate()
+        .map(|(k, l)| {
             let mut class = l.role.class().to_string();
             if l.role == Role::Tone && sandhi {
                 class.push_str(" sandhi");
             }
-            (class, l.d.clone(), l.width)
+            (class, brush::layer_outline(l, &b, k as u32 * 131 + 17))
         })
         .collect();
     rsx! {
@@ -227,8 +933,8 @@ fn Svg(layers: Vec<Layer>, size: u32, #[props(default)] sandhi: bool) -> Element
             width: "{size}",
             height: "{size}",
             view_box: "0 0 100 100",
-            for (class , d , w) in paths {
-                path { class: "{class}", d: "{d}", stroke_width: "{w}" }
+            for (class , d) in paths {
+                path { class: "{class}", d: "{d}" }
             }
         }
     }
@@ -316,6 +1022,17 @@ fn Inspector(item: Option<SylItem>) -> Element {
     let sandhi_note = s
         .sandhi_from
         .map(|t| format!("written tone {} → spoken tone {}", t.number(), s.syl.tone.number()));
+    // stroke counts: the 音块 block against the character it stands for
+    let (block_strokes, tone_strokes) = glyph::stroke_count(&glyph::syllable_layers(&s.syl));
+    let tone_note = if tone_strokes > 0 { " + 1 tone mark" } else { "" };
+    let source_strokes: Vec<(char, u8)> = s
+        .source
+        .chars()
+        .filter(|c| parse::is_hanzi(*c))
+        .filter_map(|c| hanzi::strokes(c).map(|n| (c, n)))
+        .collect();
+    // characters that are read exactly like this (citation tone)
+    let citation = s.syl.with_tone(s.sandhi_from.unwrap_or(s.syl.tone));
     rsx! {
         aside { class: "panel inspector",
             h3 { "Inspector" }
@@ -329,6 +1046,18 @@ fn Inspector(item: Option<SylItem>) -> Element {
                     div { class: "insp-zhuyin", "{s.syl.zhuyin()}" }
                     if let Some(note) = sandhi_note {
                         div { class: "insp-sandhi", "{note}" }
+                    }
+                }
+            }
+            div { class: "insp-strokes",
+                div { class: "stroke-stat",
+                    span { class: "stat-num", "{block_strokes}" }
+                    span { class: "stat-label", "strokes in the 音块 block{tone_note}" }
+                }
+                for (c , n) in source_strokes {
+                    div { class: "stroke-stat",
+                        span { class: "stat-num", "{n}" }
+                        span { class: "stat-label", "strokes in {c}" }
                     }
                 }
             }
@@ -346,6 +1075,52 @@ fn Inspector(item: Option<SylItem>) -> Element {
                         }
                     }
                 }
+            }
+            Homophones { syl: citation, current: s.source.chars().next() }
+        }
+    }
+}
+
+/// Chinese characters with exactly this syllable and tone.
+#[component]
+fn Homophones(syl: Syllable, current: Option<char>) -> Element {
+    let mut show_all = use_signal(|| false);
+    let all = hanzi::homophones(&syl);
+    let total = all.len();
+    let common = all.iter().filter(|m| m.freq > 0).count();
+    let limit = if show_all() { total } else { total.min(36) };
+    let shown: Vec<hanzi::Match> = all.into_iter().take(limit).collect();
+    let reading = syl.pinyin();
+    let zhuyin = syl.zhuyin();
+    rsx! {
+        div { class: "homophones",
+            h4 {
+                "Characters read "
+                b { "{zhuyin} {reading}" }
+                span { class: "muted", " · {total} ({common} common)" }
+            }
+            if total == 0 {
+                p { class: "muted small", "No standard character has exactly this reading." }
+            }
+            div { class: "hz-list",
+                for m in shown {
+                    span {
+                        class: if Some(m.ch) == current { "hz current" } else if m.freq > 0 { "hz" } else { "hz rare" },
+                        title: if m.freq > 0 { format!("{} strokes · {} occurrences in the 现代汉语频率词典 corpus", m.strokes, m.freq) } else { format!("{} strokes · not in the frequency corpus", m.strokes) },
+                        span { class: "hz-char", "{m.ch}" }
+                        span { class: "hz-strokes", "{m.strokes}" }
+                    }
+                }
+            }
+            if total > limit {
+                button {
+                    class: "chip",
+                    onclick: move |_| show_all.set(true),
+                    "Show all {total}"
+                }
+            }
+            p { class: "muted small",
+                "Most frequent first; the small number is the stroke count. Faded characters are rarer readings outside the frequency corpus."
             }
         }
     }
