@@ -102,17 +102,17 @@ fn App() -> Element {
     let pane = |t: Tab| if tab() == t { "tab-pane" } else { "tab-pane inactive" };
 
     rsx! {
-        document::Title { "音块 Yīnkuài" }
+        document::Title { "Phonetic Chinese Characters Brainstorming" }
         document::Stylesheet { href: CSS }
         div { class: "page",
             header { class: "masthead",
                 div { class: "logo colorize",
-                    Glyph { syl: syl("yīn"), size: 54 }
-                    Glyph { syl: syl("kuài"), size: 54 }
+                    Glyph { syl: syl("zhōng"), size: 54 }
+                    Glyph { syl: syl("wén"), size: 54 }
                 }
                 div { class: "title",
-                    h1 { "音块 " span { class: "latin", "Yīnkuài" } }
-                    p { "Sound-blocks: a featural, one-block-per-syllable script for Mandarin, built from the strokes and components of Chinese writing." }
+                    h1 { "Phonetic Chinese Characters Brainstorming" }
+                    p { "An experiment in writing Mandarin phonetically, one square block per syllable, using the strokes of Chinese characters." }
                 }
             }
 
@@ -1022,7 +1022,7 @@ fn Inspector(item: Option<SylItem>) -> Element {
     let sandhi_note = s
         .sandhi_from
         .map(|t| format!("written tone {} → spoken tone {}", t.number(), s.syl.tone.number()));
-    // stroke counts: the 音块 block against the character it stands for
+    // stroke counts: the phonetic block against the character it stands for
     let (block_strokes, tone_strokes) = glyph::stroke_count(&glyph::syllable_layers(&s.syl));
     let tone_note = if tone_strokes > 0 { " + 1 tone mark" } else { "" };
     let source_strokes: Vec<(char, u8)> = s
@@ -1052,7 +1052,7 @@ fn Inspector(item: Option<SylItem>) -> Element {
             div { class: "insp-strokes",
                 div { class: "stroke-stat",
                     span { class: "stat-num", "{block_strokes}" }
-                    span { class: "stat-label", "strokes in the 音块 block{tone_note}" }
+                    span { class: "stat-label", "strokes in the phonetic block{tone_note}" }
                 }
                 for (c , n) in source_strokes {
                     div { class: "stroke-stat",

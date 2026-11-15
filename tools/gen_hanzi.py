@@ -23,7 +23,7 @@ pinlu = readings["kHanyuPinlu"]
 tghz = readings.get("kTGHZ2013", {})
 
 chars = sorted(set(pinlu) | set(tghz))
-lines = ["# 音块 hanzi data, generated from the Unicode Unihan database",
+lines = ["# Hanzi data, generated from the Unicode Unihan database",
          "# (kTotalStrokes, kHanyuPinlu, kTGHZ2013). Unicode License v3,",
          "# https://www.unicode.org/license.txt",
          "# char<TAB>strokes<TAB>reading[:frequency] ..."]

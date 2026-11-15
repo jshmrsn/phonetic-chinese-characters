@@ -1,4 +1,4 @@
-# 音块 Yīnkuài: design and ruleset
+# Phonetic Chinese Characters Brainstorming: design notes
 
 A phonetic script for Mandarin in which **every syllable is one square block**,
 like a Chinese character. A block is assembled from a small set of components

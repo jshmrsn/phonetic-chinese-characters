@@ -1,7 +1,7 @@
 [application]
 
 [web.app]
-title = "音块 Yīnkuài"
+title = "Phonetic Chinese Characters Brainstorming"
 
 [web.resource]
 style = []

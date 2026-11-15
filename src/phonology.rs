@@ -1,7 +1,7 @@
 //! Mandarin syllable model.
 //!
 //! A syllable is `(initial)(medial) nucleus (coda)(r) + tone`, which is exactly
-//! the set of slots a 音块 glyph has. Everything here is pure data: no
+//! the set of slots a glyph has. Everything here is pure data: no
 //! rendering, no input parsing.
 
 // ---------------------------------------------------------------------------
