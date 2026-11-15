@@ -43,24 +43,24 @@ impl Place {
     /// The traditional component the frame is taken from.
     pub fn frame(self) -> &'static str {
         match self {
-            Place::Labial => "口",
+            Place::Labial => "匚",
             Place::Alveolar => "厂",
-            Place::Dental => "匚",
+            Place::Dental => "凵",
             Place::Retroflex => "乚",
             Place::Palatal => "冂",
-            Place::Velar => "勹",
+            Place::Velar => "𠃌",
         }
     }
 
     /// Why this frame (the mouth is pictured facing left).
     pub fn idea(self) -> &'static str {
         match self {
-            Place::Labial => "fully closed box: both lips shut",
+            Place::Labial => "closed at the front: the lips",
             Place::Alveolar => "closed top-front: tongue tip on the gum ridge",
-            Place::Dental => "closed front, top and bottom: teeth together",
-            Place::Retroflex => "rising hook: tongue tip curled up and back",
+            Place::Dental => "closed below: tongue tip down behind the lower teeth",
+            Place::Retroflex => "one rising hook: tongue tip curled up and back",
             Place::Palatal => "a roof over everything: tongue body on the hard palate",
-            Place::Velar => "closed top-back: tongue root on the soft palate",
+            Place::Velar => "one stroke closed top-back: tongue root on the soft palate",
         }
     }
 }
@@ -99,7 +99,7 @@ impl Manner {
             Manner::Plain => "(empty)",
             Manner::Aspirated => "一",
             Manner::Nasal => "丶",
-            Manner::Fricative => "乂",
+            Manner::Fricative => "丿",
             Manner::Liquid => "丨",
         }
     }
@@ -109,7 +109,7 @@ impl Manner {
             Manner::Plain => "nothing inside: a clean stop",
             Manner::Aspirated => "one level stroke: a puff of breath",
             Manner::Nasal => "a single dot: the voice resonating in the nose",
-            Manner::Fricative => "crossed strokes: turbulent, hissing air",
+            Manner::Fricative => "a slash: air squeezed through a narrow gap",
             Manner::Liquid => "one upright stroke: the tongue held in place, air flows round it",
         }
     }
@@ -239,25 +239,25 @@ impl Vowel {
 
     pub fn component(self) -> &'static str {
         match self {
-            Vowel::A => "大",
+            Vowel::A => "八",
             Vowel::O => "又",
             Vowel::E => "了",
             Vowel::Ehat => "了 + 丶",
             Vowel::I => "乙",
-            Vowel::U => "土",
-            Vowel::Yu => "土 + 丷",
+            Vowel::U => "乂",
+            Vowel::Yu => "乂 + 丶",
         }
     }
 
     pub fn idea(self) -> &'static str {
         match self {
-            Vowel::A => "大 dà: the mouth opened wide",
-            Vowel::O => "又: a looped, rounded stroke for rounded lips",
-            Vowel::E => "了 le: the most common neutral 'e' in the language",
-            Vowel::Ehat => "了 with a dot, like pinyin's ê (circumflex)",
-            Vowel::I => "乙 yǐ",
-            Vowel::U => "土 tǔ",
-            Vowel::Yu => "土 with two dots, exactly like pinyin's ü (umlaut)",
+            Vowel::A => "八 bā: lips and jaw spread wide open",
+            Vowel::O => "the crossing of u under a lid: rounded, but more open",
+            Vowel::E => "了 le: the neutral e",
+            Vowel::Ehat => "e plus the fronting dot (pinyin ê)",
+            Vowel::I => "乙 yǐ: one stroke",
+            Vowel::U => "zhuyin's ㄨ: crossed strokes for pursed lips",
+            Vowel::Yu => "u plus the fronting dot, like pinyin's ü (looks like 义)",
         }
     }
 }

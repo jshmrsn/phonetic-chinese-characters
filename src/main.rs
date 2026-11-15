@@ -329,7 +329,7 @@ fn Reference() -> Element {
         section { class: "panel reference colorize",
             h2 { "The script" }
             p { class: "lede",
-                "Every syllable is one square block, like a Chinese character. A block is assembled from at most six parts that always sit in the same places, so a reader who knows ~20 components can read any Mandarin syllable. Nothing about a block depends on its neighbours."
+                "Every syllable is one square block, like a Chinese character. A block is assembled from at most six parts that always sit in the same places, and every part is only one or two strokes, so a reader who knows six frames, four marks and seven vowels can read any Mandarin syllable. Nothing about a block depends on its neighbours."
             }
 
             h3 { "1 · Where the parts go" }
@@ -340,7 +340,7 @@ fn Reference() -> Element {
                     Labeled { syl: syl("xué"), label: "xué".to_string(), size: 96 }
                     Labeled { syl: syl("yǒu"), label: "yǒu: no initial".to_string(), size: 96 }
                     Labeled { syl: syl("shì"), label: "shì: initial only".to_string(), size: 96 }
-                    Labeled { syl: syl("huār"), label: "huār: with 儿".to_string(), size: 96 }
+                    Labeled { syl: syl("huār"), label: "huār: with 儿化".to_string(), size: 96 }
                 }
             }
             ol { class: "rules",
@@ -348,33 +348,33 @@ fn Reference() -> Element {
                 li { b { "Initial" } " (consonant) stands on the left like a radical, the left–right structure of 好 or 吃." }
                 li { b { "Final" } " stacks on the right from top to bottom, like the right half of 漫: " i { "medial" } " glide, main " i { "vowel" } ", " i { "coda" } ". Glides and codas are flattened, like 艹 on top or 灬 below, so the vowel stays the visual centre." }
                 li { "With no initial (a, yi, wu, yu …) the final takes the full width. With an empty rhyme (zi ci si zhi chi shi ri) the initial fills the block on its own, as in zhuyin." }
-                li { "Spelling is phonemic, one sound per component: " code { "iu" } " is i·o·u, " code { "ui" } " is u·e·i, " code { "un" } " is u·e·n, " code { "ju" } " is j·ü, " code { "ie" } " is i·ê, " code { "ao" } " is a·u, " code { "er" } " is e + 儿. Pinyin's y/w spellings disappear." }
+                li { "Spelling is phonemic, one sound per component: " code { "iu" } " is i·o·u, " code { "ui" } " is u·e·i, " code { "un" } " is u·e·n, " code { "ju" } " is j·ü, " code { "ie" } " is i·ê, " code { "ao" } " is a·u, " code { "er" } " is e + r. Pinyin's y/w spellings disappear." }
                 li { "Tone sandhi is the only change between neighbouring syllables, and like a dictionary the script writes the citation tone. Turn on " i { "Tone sandhi" } " to see the spoken tones instead." }
-                li { "Only the classical strokes are used: 横 竖 撇 点 捺 提 and their 折 / 钩 / 弯 compounds, at one constant weight." }
+                li { "Every part is one or two strokes, and only the classical strokes are used: 横 竖 撇 点 捺 提 and their 折 / 钩 / 弯 compounds, at one constant weight." }
             }
 
             h3 { "2 · Initials: frame = place, inner mark = manner" }
             p { class: "muted",
-                "Picture a mouth facing left. The frame shows where the closure is made; the mark inside shows how the air gets out. Every consonant of a place shares one frame, and every consonant of a manner shares one mark."
+                "Picture a mouth facing left: lips on the left, the roof of the mouth on top. The frame is drawn along the surface where the closure is made; the single mark inside shows how the air gets out. Every consonant of a place shares one frame, and every consonant of a manner shares one mark."
             }
             InitialChart {}
 
             h3 { "3 · Vowels" }
             p { class: "muted",
-                "Vowels are open shapes, consonants are enclosures, so the two never look alike. i, u and ü have a flattened form for when they glide: on top as a medial, at the bottom as a coda."
+                "Vowels are free-standing strokes, consonants are frames, so the two never look alike. A dot fronts a vowel: e → ê, u → ü. i, u and ü have a flattened form for when they glide: on top as a medial, at the bottom as a coda."
             }
             VowelChart {}
 
             h3 { "4 · Codas" }
             p { class: "muted",
-                "The syllable's ending reuses what you already know: -n and -ng are the n and ng consonants (alveolar vs velar frame: the frame alone tells n from ng), -i and -u are flattened vowels, and 儿 marks the r."
+                "The syllable's ending reuses what you already know. -i and -u are the flattened vowels. After a vowel only n, ng or r can follow, so those are written as the bare frame of their place with no mark: 厂 front for -n, 𠃌 back for -ng, and the curl 乚 for -r. The frame alone shows the n/ng difference."
             }
             div { class: "row",
                 PartCard { part: Part::Glide(Vowel::I), title: "-i", sub: "乙 flat · ai ei uai uei" }
-                PartCard { part: Part::Glide(Vowel::U), title: "-u", sub: "土 flat · ao ou iao iou" }
-                PartCard { part: Part::NasalCoda(Coda::N), title: "-n", sub: "厂 + 丶 · an en in un" }
-                PartCard { part: Part::NasalCoda(Coda::Ng), title: "-ng", sub: "勹 + 丶 (勺) · ang eng ing ong" }
-                PartCard { part: Part::Rhotic, title: "-r", sub: "儿 · er and 儿化" }
+                PartCard { part: Part::Glide(Vowel::U), title: "-u", sub: "乂 flat · ao ou iao iou" }
+                PartCard { part: Part::Coda(Coda::N), title: "-n", sub: "bare 厂 · an en in un" }
+                PartCard { part: Part::Coda(Coda::Ng), title: "-ng", sub: "bare 𠃌 · ang eng ing ong" }
+                PartCard { part: Part::Rhotic, title: "-r", sub: "bare 乚 · er and 儿化" }
             }
 
             h3 { "5 · Tones" }
@@ -518,7 +518,7 @@ fn InitialCell(c: Consonant) -> Element {
                 span { class: "muted", " {c.zhuyin()}" }
             }
             if coda_only {
-                div { class: "th-idea", "coda only" }
+                div { class: "th-idea", "only in 嗯 ńg; as a coda, the bare frame" }
             }
         }
     }

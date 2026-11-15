@@ -94,28 +94,31 @@ fn emit(strokes: Strokes, g: Rect, out: &mut String) {
 
 // ---------------------------------------------------------------------------
 // Consonant frames (place of articulation)
+//
+// The mouth is pictured facing left: left = lips, top = roof of the mouth,
+// right = throat. Each frame is one or two strokes drawn along the surface
+// where the closure is made.
 // ---------------------------------------------------------------------------
 
-/// 口 — labial: a fully closed box.
-const KOU: Strokes = &[
-    &[M(0.0, 0.0), L(0.0, 1.0)],
-    &[M(0.0, 0.0), L(1.0, 0.0), L(1.0, 1.0)],
-    &[M(0.0, 1.0), L(1.0, 1.0)],
-];
-
-/// 厂 — alveolar: closed at the top-front.
-const HAN: Strokes = &[
-    &[M(0.04, 0.0), L(1.0, 0.0)],
-    &[M(0.1, 0.0), L(0.1, 0.56), Q(0.1, 0.88, 0.0, 1.0)],
-];
-
-/// 匚 — dental: closed top, front and bottom.
+/// 匚 — labial: closed at the front, where the lips meet.
 const FANG: Strokes = &[
     &[M(0.0, 0.0), L(1.0, 0.0)],
     &[M(0.0, 0.0), L(0.0, 1.0), L(1.0, 1.0)],
 ];
 
-/// 乚 — retroflex: a vertical that curls up into a hook.
+/// 厂 — alveolar: closed at the top-front, tongue tip on the gum ridge.
+const HAN: Strokes = &[
+    &[M(0.04, 0.0), L(1.0, 0.0)],
+    &[M(0.1, 0.0), L(0.1, 0.56), Q(0.1, 0.88, 0.0, 1.0)],
+];
+
+/// 凵 — dental: closed below, tongue tip down behind the lower teeth.
+const KAN: Strokes = &[
+    &[M(0.0, 0.0), L(0.0, 1.0), L(1.0, 1.0)],
+    &[M(1.0, 0.0), L(1.0, 1.0)],
+];
+
+/// 乚 — retroflex: one stroke that curls up, like the tongue tip.
 const YIN: Strokes = &[&[
     M(0.04, 0.0),
     L(0.04, 0.74),
@@ -124,43 +127,37 @@ const YIN: Strokes = &[&[
     L(0.98, 0.8),
 ]];
 
-/// 冂 — palatal: a roof over the whole top.
+/// 冂 — palatal: a roof over everything, tongue body on the hard palate.
 const JIONG: Strokes = &[
     &[M(0.0, 0.0), L(0.0, 1.0)],
     &[M(0.0, 0.0), L(1.0, 0.0), L(1.0, 1.0), L(0.84, 0.9)],
 ];
 
-/// 勹 — velar: closed at the top-back.
-const BAO: Strokes = &[
-    &[M(0.36, 0.0), Q(0.3, 0.3, 0.0, 0.52)],
-    &[M(0.26, 0.2), L(1.0, 0.2), L(1.0, 1.0), L(0.84, 0.9)],
-];
+/// 𠃌 — velar: one 横折钩 stroke, closed at the top-back.
+const GOU: Strokes = &[&[M(0.0, 0.0), L(1.0, 0.0), L(1.0, 1.0), L(0.8, 0.88)]];
 
 fn frame(place: Place) -> (Strokes, Rect) {
     // (strokes, inner area for the manner mark in unit coordinates)
     match place {
-        Place::Labial => (KOU, Rect::new(0.2, 0.2, 0.6, 0.6)),
+        Place::Labial => (FANG, Rect::new(0.24, 0.2, 0.64, 0.6)),
         Place::Alveolar => (HAN, Rect::new(0.32, 0.22, 0.62, 0.66)),
-        Place::Dental => (FANG, Rect::new(0.24, 0.2, 0.64, 0.6)),
+        Place::Dental => (KAN, Rect::new(0.2, 0.14, 0.6, 0.64)),
         Place::Retroflex => (YIN, Rect::new(0.3, 0.1, 0.6, 0.66)),
         Place::Palatal => (JIONG, Rect::new(0.2, 0.24, 0.6, 0.62)),
-        Place::Velar => (BAO, Rect::new(0.3, 0.42, 0.52, 0.44)),
+        Place::Velar => (GOU, Rect::new(0.06, 0.24, 0.68, 0.6)),
     }
 }
 
 // ---------------------------------------------------------------------------
-// Manner marks
+// Manner marks: always exactly one basic stroke
 // ---------------------------------------------------------------------------
 
 /// 一 aspirated
 const MARK_ASP: Strokes = &[&[M(0.0, 0.5), L(1.0, 0.5)]];
 /// 丶 nasal
 const MARK_NAS: Strokes = &[&[M(0.28, 0.18), L(0.72, 0.82)]];
-/// 乂 fricative
-const MARK_FRIC: Strokes = &[
-    &[M(0.94, 0.04), Q(0.62, 0.6, 0.04, 0.96)],
-    &[M(0.1, 0.08), Q(0.42, 0.62, 0.96, 0.96)],
-];
+/// 丿 fricative
+const MARK_FRIC: Strokes = &[&[M(0.9, 0.04), Q(0.7, 0.62, 0.06, 0.96)]];
 /// 丨 liquid
 const MARK_LIQ: Strokes = &[&[M(0.5, 0.0), L(0.5, 1.0)]];
 
@@ -169,20 +166,19 @@ fn mark(manner: Manner) -> Option<(Strokes, f32, f32)> {
         Manner::Plain => None,
         Manner::Aspirated => Some((MARK_ASP, 0.0, 99.0)),
         Manner::Nasal => Some((MARK_NAS, 0.62, 0.9)),
-        Manner::Fricative => Some((MARK_FRIC, 0.72, 1.3)),
+        Manner::Fricative => Some((MARK_FRIC, 0.5, 0.95)),
         Manner::Liquid => Some((MARK_LIQ, 0.0, 99.0)),
     }
 }
 
 // ---------------------------------------------------------------------------
-// Vowels
+// Vowels: one or two strokes; a dot (丶) marks the front vowels ê and ü
 // ---------------------------------------------------------------------------
 
-/// 大 a
-const DA: Strokes = &[
-    &[M(0.04, 0.36), L(0.96, 0.36)],
-    &[M(0.5, 0.0), L(0.5, 0.4), Q(0.47, 0.8, 0.04, 1.0)],
-    &[M(0.55, 0.5), Q(0.7, 0.86, 0.98, 1.0)],
+/// 八 a
+const BA: Strokes = &[
+    &[M(0.4, 0.04), Q(0.38, 0.62, 0.02, 0.96)],
+    &[M(0.6, 0.1), Q(0.66, 0.62, 0.98, 0.94)],
 ];
 
 /// 又 o
@@ -201,7 +197,7 @@ const LE: Strokes = &[
 const LE_DOT: Strokes = &[
     &[M(0.1, 0.04), L(0.86, 0.04), L(0.52, 0.34)],
     &[M(0.52, 0.34), L(0.52, 1.0), L(0.32, 0.88)],
-    &[M(0.76, 0.48), L(0.92, 0.66)],
+    &[M(0.76, 0.46), L(0.92, 0.66)],
 ];
 
 /// 乙 i
@@ -214,37 +210,28 @@ const YI: Strokes = &[&[
     L(0.96, 0.8),
 ]];
 
-/// 土 u
-const TU: Strokes = &[
-    &[M(0.18, 0.4), L(0.82, 0.4)],
-    &[M(0.5, 0.0), L(0.5, 1.0)],
-    &[M(0.0, 1.0), L(1.0, 1.0)],
+/// 乂 u
+const WU: Strokes = &[
+    &[M(0.9, 0.04), Q(0.62, 0.6, 0.04, 0.96)],
+    &[M(0.1, 0.06), Q(0.42, 0.6, 0.96, 0.96)],
 ];
 
-/// 土 + 丷 ü
-const TU_DOTS: Strokes = &[
-    &[M(0.18, 0.02), L(0.32, 0.26)],
-    &[M(0.82, 0.02), L(0.68, 0.26)],
-    &[M(0.16, 0.46), L(0.84, 0.46)],
-    &[M(0.5, 0.0), L(0.5, 1.0)],
-    &[M(0.0, 1.0), L(1.0, 1.0)],
-];
-
-/// 儿 r (儿化 and the r of er)
-const ER: Strokes = &[
-    &[M(0.36, 0.0), L(0.36, 0.42), Q(0.34, 0.82, 0.02, 1.0)],
-    &[M(0.64, 0.0), L(0.64, 0.76), Q(0.64, 1.0, 0.82, 1.0), L(0.9, 1.0), L(0.98, 0.8)],
+/// 义 ü: 乂 with the fronting dot
+const YU: Strokes = &[
+    &[M(0.42, 0.0), L(0.58, 0.2)],
+    &[M(0.9, 0.3), Q(0.62, 0.7, 0.04, 0.98)],
+    &[M(0.1, 0.32), Q(0.42, 0.7, 0.96, 0.98)],
 ];
 
 fn vowel_strokes(v: Vowel) -> Strokes {
     match v {
-        Vowel::A => DA,
+        Vowel::A => BA,
         Vowel::O => YOU,
         Vowel::E => LE,
         Vowel::Ehat => LE_DOT,
         Vowel::I => YI,
-        Vowel::U => TU,
-        Vowel::Yu => TU_DOTS,
+        Vowel::U => WU,
+        Vowel::Yu => YU,
     }
 }
 
@@ -320,8 +307,7 @@ mod aspect {
     pub const NUCLEUS_SIDE: (f32, f32) = (0.55, 1.0);
     pub const NUCLEUS_ALONE: (f32, f32) = (0.72, 1.06);
     pub const GLIDE: (f32, f32) = (1.6, 3.4);
-    pub const NASAL_CODA: (f32, f32) = (1.3, 2.6);
-    pub const RHOTIC: (f32, f32) = (0.9, 2.4);
+    pub const FRAME_CODA: (f32, f32) = (1.5, 3.0);
     pub const SPLIT: (f32, f32) = (0.7, 1.6);
 }
 
@@ -329,13 +315,7 @@ mod aspect {
 fn consonant_path(c: Consonant, r: Rect, asp: (f32, f32)) -> String {
     let mut out = String::new();
     let (strokes, inner) = frame(c.place);
-    let mut fitted = r.fit(asp.0, asp.1);
-    if c.place == Place::Labial && fitted.w / fitted.h < 0.62 {
-        // 口 as a left radical sits short and a little high, as in 吃 or 叫
-        let h = fitted.w / 0.62;
-        fitted = Rect { y: fitted.y + (fitted.h - h) * 0.4, h, ..fitted };
-    }
-    let g = fitted.inset(SW / 2.0);
+    let g = r.fit(asp.0, asp.1).inset(SW / 2.0);
     emit(strokes, g, &mut out);
     if let Some((m, lo, hi)) = mark(c.manner) {
         let ir = g.sub(inner.x, inner.y, inner.w, inner.h).fit(lo, hi);
@@ -350,10 +330,24 @@ fn vowel_path(v: Vowel, r: Rect, asp: (f32, f32)) -> String {
     out
 }
 
+/// 儿化 / er: the bare retroflex frame 乚 in the coda slot.
 fn rhotic_path(r: Rect, asp: (f32, f32)) -> String {
-    let mut out = String::new();
-    emit(ER, r.fit(asp.0, asp.1).inset(SW / 2.0), &mut out);
-    out
+    consonant_path(Consonant::new(Place::Retroflex, Manner::Plain), r, asp)
+}
+
+/// A nasal coda is the bare frame of its place: only n, ng (and m in
+/// interjections) can close a syllable, so the nasal mark is not needed.
+fn coda_frame(c: Consonant) -> Consonant {
+    Consonant::new(c.place, Manner::Plain)
+}
+
+/// How flat a glide may be drawn: crossed strokes (乂, 义) stop reading as a
+/// cross when squashed too far, 乙 survives more.
+fn glide_aspect(v: Vowel) -> (f32, f32) {
+    match v {
+        Vowel::I => aspect::GLIDE,
+        _ => (aspect::GLIDE.0, 2.3),
+    }
 }
 
 fn layer(role: Role, d: String) -> Layer {
@@ -384,7 +378,7 @@ pub fn syllable_layers(s: &Syllable) -> Vec<Layer> {
                 let top = Rect::new(14.0, BODY_TOP, 72.0, 50.0);
                 layers.push(layer(Role::Initial, consonant_path(c, top, (0.9, 1.6))));
                 let bottom = Rect::new(14.0, BODY_TOP + 55.0, 72.0, 21.0);
-                layers.push(layer(Role::Rhotic, rhotic_path(bottom, aspect::RHOTIC)));
+                layers.push(layer(Role::Rhotic, rhotic_path(bottom, aspect::FRAME_CODA)));
             } else {
                 let body = Rect::new(12.0, BODY_TOP + 1.0, 76.0, BODY_H - 2.0);
                 layers.push(layer(Role::Initial, consonant_path(c, body, aspect::INITIAL_ALONE)));
@@ -415,7 +409,7 @@ fn final_layers(s: &Syllable, rect: Rect, beside_initial: bool, layers: &mut Vec
         parts.push((FPart::Nucleus(n), 0.62));
     }
     if s.coda.is_some() || s.rhotic {
-        let w = if s.coda.is_some() && s.rhotic { 0.42 } else { 0.36 };
+        let w = if s.coda.is_some() && s.rhotic { 0.4 } else { 0.32 };
         parts.push((FPart::Coda, w));
     }
     let gap = 5.5;
@@ -429,7 +423,7 @@ fn final_layers(s: &Syllable, rect: Rect, beside_initial: bool, layers: &mut Vec
         let r = Rect::new(rect.x, y, rect.w, h);
         y += h + gap;
         match part {
-            FPart::Medial(v) => layers.push(layer(Role::Medial, vowel_path(v, r, aspect::GLIDE))),
+            FPart::Medial(v) => layers.push(layer(Role::Medial, vowel_path(v, r, glide_aspect(v)))),
             FPart::Nucleus(v) => {
                 let asp = if !alone {
                     aspect::NUCLEUS_STACKED
@@ -446,20 +440,24 @@ fn final_layers(s: &Syllable, rect: Rect, beside_initial: bool, layers: &mut Vec
 }
 
 fn coda_layers(s: &Syllable, r: Rect, alone: bool, layers: &mut Vec<Layer>) {
+    // With no vowel (m, n, ng, hm, hng) the nasal is syllabic and keeps its
+    // nasal mark; after a vowel it is reduced to the bare frame.
+    let syllabic = s.nucleus.is_none();
     let draw_coda = |c: Coda, r: Rect, asp: (f32, f32)| -> String {
         match (c.vowel(), c.consonant()) {
             (Some(v), _) => vowel_path(v, r, asp),
-            (_, Some(k)) => consonant_path(k, r, asp),
+            (_, Some(k)) if syllabic => consonant_path(k, r, asp),
+            (_, Some(k)) => consonant_path(coda_frame(k), r, asp),
             _ => String::new(),
         }
     };
     let coda_asp = |c: Coda| {
         if alone {
             aspect::INITIAL_ALONE
-        } else if c.vowel().is_some() {
-            aspect::GLIDE
+        } else if let Some(v) = c.vowel() {
+            glide_aspect(v)
         } else {
-            aspect::NASAL_CODA
+            aspect::FRAME_CODA
         }
     };
     match (s.coda, s.rhotic) {
@@ -472,7 +470,7 @@ fn coda_layers(s: &Syllable, r: Rect, alone: bool, layers: &mut Vec<Layer>) {
             layers.push(layer(Role::Rhotic, rhotic_path(right, aspect::SPLIT)));
         }
         (Some(c), false) => layers.push(layer(Role::Coda, draw_coda(c, r, coda_asp(c)))),
-        (None, true) => layers.push(layer(Role::Rhotic, rhotic_path(r, aspect::RHOTIC))),
+        (None, true) => layers.push(layer(Role::Rhotic, rhotic_path(r, aspect::FRAME_CODA))),
         (None, false) => {}
     }
 }
@@ -487,7 +485,8 @@ pub enum Part {
     Vowel(Vowel),
     /// flattened glide form (medial / coda) of i, u, ü
     Glide(Vowel),
-    NasalCoda(Coda),
+    /// a coda as written after a vowel (bare frame or flattened vowel)
+    Coda(Coda),
     Rhotic,
     Tone(Tone),
 }
@@ -504,18 +503,20 @@ pub fn part_layers(p: Part) -> Vec<Layer> {
         )],
         Part::Glide(v) => vec![layer(
             Role::Medial,
-            vowel_path(v, Rect::new(8.0, 34.0, 84.0, 32.0), aspect::GLIDE),
+            vowel_path(v, Rect::new(8.0, 34.0, 84.0, 32.0), glide_aspect(v)),
         )],
-        Part::NasalCoda(c) => vec![layer(
-            Role::Coda,
-            match c.consonant() {
-                Some(k) => consonant_path(k, Rect::new(8.0, 30.0, 84.0, 40.0), aspect::NASAL_CODA),
-                None => String::new(),
-            },
-        )],
+        Part::Coda(c) => {
+            let r = Rect::new(8.0, 30.0, 84.0, 40.0);
+            let d = match (c.vowel(), c.consonant()) {
+                (Some(v), _) => vowel_path(v, r, glide_aspect(v)),
+                (_, Some(k)) => consonant_path(coda_frame(k), r, aspect::FRAME_CODA),
+                _ => String::new(),
+            };
+            vec![layer(Role::Coda, d)]
+        }
         Part::Rhotic => vec![layer(
             Role::Rhotic,
-            rhotic_path(Rect::new(10.0, 30.0, 80.0, 40.0), aspect::RHOTIC),
+            rhotic_path(Rect::new(10.0, 30.0, 80.0, 40.0), aspect::FRAME_CODA),
         )],
         Part::Tone(t) => tone_path(t)
             .map(|d| {
@@ -622,7 +623,13 @@ pub fn describe(s: &Syllable) -> Vec<PartInfo> {
     if let Some(c) = s.coda {
         let (component, note) = match (c.vowel(), c.consonant()) {
             (Some(v), _) => (format!("{} (flattened)", v.component()), "glide out of the vowel"),
-            (_, Some(k)) => (consonant_component(k), "same component as the consonant"),
+            (_, Some(k)) if s.nucleus.is_none() => {
+                (consonant_component(k), "syllabic nasal: the full consonant")
+            }
+            (_, Some(k)) => (
+                k.place.frame().to_string(),
+                "bare frame: after a vowel only a nasal can follow, so no mark is needed",
+            ),
             _ => (String::new(), ""),
         };
         let sound = if c == Coda::U && s.nucleus == Some(Vowel::A) { "o (u)" } else { c.pinyin() };
@@ -632,8 +639,8 @@ pub fn describe(s: &Syllable) -> Vec<PartInfo> {
         v.push(PartInfo {
             role: Role::Rhotic,
             sound: "r".into(),
-            component: "儿".into(),
-            note: "r-colouring (儿化 / er)".into(),
+            component: "乚".into(),
+            note: "bare retroflex frame: r-colouring (儿化 / er)".into(),
         });
     }
     v.push(PartInfo {
