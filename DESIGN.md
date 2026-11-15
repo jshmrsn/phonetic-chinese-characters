@@ -1,26 +1,31 @@
 # 音块 Yīnkuài: design and ruleset
 
 A phonetic script for Mandarin in which **every syllable is one square block**,
-like a Chinese character. Blocks are assembled from a small set of reusable
-components (initials, vowels, codas, tone marks) following fixed rules, in the
-spirit of Hangul. Every component is drawn with the strokes of Chinese
-writing.
+like a Chinese character. A block is assembled from a small set of components
+following fixed rules, in the spirit of Hangul. Every component is drawn with
+the strokes of Chinese writing.
+
+The script follows **zhuyin's analysis of Mandarin, not pinyin's spelling**.
+A syllable is an initial, a medial glide and a rhyme, plus the tone. Each of
+those is one symbol, and each symbol stands for one sound.
 
 Design goals:
 
 1. **One block = one syllable**, and a block never depends on its neighbours.
    Tone sandhi is the only cross-syllable effect in Mandarin. The script writes
-   the citation tone, as dictionaries and pinyin do.
-2. **Minimal**: every component is one or two strokes, plus at most one mark.
-   A typical block has 4–8 strokes.
-3. **Featural**: sounds that are made alike look alike. All consonants made at
-   the same place share a frame, all consonants made the same way share a mark,
-   and a dot always means "front vowel".
-4. **Chinese strokes only**: 横 竖 撇 点 捺 提 and their 折 / 钩 / 弯 compounds,
-   at one constant weight. Components borrow the *look* of familiar components
-   (匚 厂 凵 乚 冂 八 又 了 乙 乂) without having to be complete characters.
-5. **Phonemic spelling**: one component per sound, with none of pinyin's
-   abbreviations.
+   the citation tone, as dictionaries do.
+2. **One symbol per sound**: a diphthong or nasal rhyme such as ㄠ ao or ㄤ ang is
+   a single symbol, not a string of letters. Sounds that are related share a
+   base (ㄚ a → ㄞ ㄠ ㄢ ㄤ). Sounds that are different never share a shape,
+   even where pinyin uses the same letter: ㄜ (me), ㄟ (mei) and ㄝ (ye) look
+   unrelated.
+3. **Nothing hidden**: no dropped vowels (liu is ㄌㄧㄡ, gui is ㄍㄨㄟ, dun is
+   ㄉㄨㄣ), ü is always ü (ju is ㄐㄩ), and no Latin letters to mislead.
+4. **Featural and minimal**: consonants share a frame per place and a mark per
+   manner; rhymes share an ending stroke per ending. Every symbol is one to
+   three strokes.
+5. **Chinese strokes only**: 横 竖 撇 点 捺 提 and their 折 / 钩 / 弯 compounds,
+   at one constant weight.
 
 ---
 
@@ -30,27 +35,24 @@ Design goals:
 ┌─────────────────────────┐
 │          tone           │   top centre, always
 ├────────┬────────────────┤
-│        │     medial     │   i / u / ü glide (flattened vowel)
+│        │     medial     │   ㄧ ㄨ ㄩ, flattened
 │ initial│────────────────│
-│        │     vowel      │   the nucleus (full-size vowel)
-│        │────────────────│
-│        │      coda      │   flattened -i -u, or a bare frame for -n -ng -r
+│        │                │
+│        │      rhyme     │   one symbol: vowel + at most one ending stroke
+│        │                │
 └────────┴────────────────┘
 ```
 
 | Syllable has…              | Structure                          | Example            |
 |----------------------------|------------------------------------|--------------------|
-| initial + final            | left–right, like 好: initial on the left (≈⅓), final stacked on the right | 好 hǎo, 装 zhuāng |
-| final only (no consonant)  | the final stack takes the full width | 有 yǒu, 我 wǒ, 鱼 yú |
-| initial only               | the initial fills the block (zi ci si zhi chi shi ri, as in zhuyin) | 是 shì, 字 zì |
-| syllabic nasal             | the full nasal consonant alone     | 嗯 ńg, 呣 m̀         |
+| initial + final            | left–right, like 好: initial on the left (≈⅓), final on the right | 好 ㄏㄠ, 装 ㄓㄨㄤ |
+| final only (no consonant)  | the final takes the full width     | 有 ㄧㄡ, 我 ㄨㄛ, 鱼 ㄩ |
+| initial only               | the initial fills the block (zi ci si zhi chi shi ri, as in zhuyin) | 是 ㄕ, 字 ㄗ |
+| syllabic nasal             | the full nasal consonant alone     | 嗯 ㄫ, 呣 ㄇ         |
 
-The final is stacked top to bottom (like the right half of 漫 or the whole of 意):
-medial, then vowel, then coda. Glides and codas are **flattened**, the way 艹
-sits on top and 灬 sits below, so the vowel is always the visual centre.
-
-When a syllable has both a coda and r-colouring (e.g. diǎnr), they share the
-coda row side by side.
+The final is at most two parts: an optional medial flattened on top, the way
+艹 sits on a character, and the rhyme beneath it. With no medial, the rhyme
+fills the column.
 
 ## 2. Initials: frame × mark
 
@@ -60,112 +62,97 @@ closure is made. A single mark inside shows *how* the air escapes.
 
 | place ↓ / manner → | (none) unaspirated | 一 aspirated | 丶 nasal | 丿 fricative | 丨 liquid |
 |--------------------|-----------|-------|-------|-------|-------|
-| **匚** labial: closed at the front, the lips | b | p | m | f | |
-| **厂** alveolar: closed top-front, tongue tip on the gum ridge | d | t | n | | l |
-| **凵** dental: closed below, tongue tip down behind the lower teeth | z | c | | s | |
-| **乚** retroflex: one rising hook, tongue tip curled up | zh | ch | | sh | r |
-| **冂** palatal: a roof over everything, tongue body on the palate | j | q | | x | |
-| **𠃌** velar: one 横折钩, closed top-back at the soft palate | g | k | ng | h | |
+| **匚** labial: closed at the front, the lips | ㄅ b | ㄆ p | ㄇ m | ㄈ f | |
+| **厂** alveolar: closed top-front, tongue tip on the gum ridge | ㄉ d | ㄊ t | ㄋ n | | ㄌ l |
+| **凵** dental: closed below, tongue tip down behind the lower teeth | ㄗ z | ㄘ c | | ㄙ s | |
+| **乚** retroflex: one rising hook, tongue tip curled up | ㄓ zh | ㄔ ch | | ㄕ sh | ㄖ r |
+| **冂** palatal: a roof over everything, tongue body on the palate | ㄐ j | ㄑ q | | ㄒ x | |
+| **𠃌** velar: one 横折钩, closed top-back at the soft palate | ㄍ g | ㄎ k | ㄫ ng | ㄏ h | |
 
 The marks, each exactly one stroke:
 
 * **(nothing)**: a clean stop or affricate.
-* **一** aspirated: a level stroke, a puff of breath (p t c ch q k).
-* **丶** nasal: a dot, the voice resonating in the nose (m n ng).
-* **丿** fricative: a slash, air squeezed through a narrow gap (f s sh x h).
-* **丨** liquid: an upright stroke, the tongue held in place while air flows round it (l r).
+* **一** aspirated: a level stroke, a puff of breath.
+* **丶** nasal: a dot, the voice resonating in the nose.
+* **丿** fricative: a slash, air squeezed through a narrow gap.
+* **丨** liquid: an upright stroke, the tongue held in place while air flows round it.
 
-Frames are one or two strokes (乚 and 𠃌 are single strokes), so no initial has
-more than three. Six frames and four marks are enough to read all 21 initials
-plus ng.
+## 3. Rhymes: thirteen symbols
 
-The frames for labial, dental and palatal are the same three-sided box opened
-toward the right, the top and the bottom (匚 凵 冂). Each one is closed on the
-side where the mouth closes.
+These are zhuyin's thirteen rhymes. Each is one symbol: a **vowel** plus at most
+one **ending stroke**. Rhymes on the same vowel sound share the vowel. The
+ending stroke is the same for every vowel and is written close under it, so
+vowel and ending read as one shape.
 
-## 3. Vowels
+| vowel ↓ / ending → | alone | 提 -i | 卧钩 -u | 横 -n | 横折钩 -ng | 竖弯钩 -r |
+|--------------------|-------|-------|--------|-------|-----------|----------|
+| **八** ㄚ a, the jaw wide open | ㄚ a | ㄞ ai | ㄠ ao | ㄢ an | ㄤ ang | |
+| **又** ㄛ o, a rounded loop | ㄛ o | | ㄡ ou | | | |
+| **了** ㄜ e, unrounded mid (哥 根 冷) | ㄜ e | | | ㄣ en | ㄥ eng | ㄦ er |
+| **人** ㄝ ê, front mid (也 谢 美) | ㄝ ê | ㄟ ei | | | | |
 
-Vowels are free-standing strokes and consonants are frames, so the two classes
-never look alike.
+Why these groupings:
 
-| vowel | form | strokes | idea | glide form |
-|-------|------|---------|------|------------|
-| a | 八 | 2 | bā: lips and jaw spread wide open | — |
-| o | 又 | 2 | the crossing of u under a lid: rounded, but more open | — |
-| e | 了 | 2 | le: the neutral e | — |
-| ê | 了 + 丶 | 3 | e + fronting dot (pinyin ê) | — |
-| i | 乙 | 1 | yǐ | flattened 乙 |
-| u | 乂 | 2 | zhuyin's ㄨ: crossed strokes for pursed lips | flattened 乂 |
-| ü | 乂 + 丶 (义) | 3 | u + fronting dot (pinyin ü) | flattened 义 |
+* **ㄟ ei is built on ㄝ ê, not on ㄜ e.** The vowel of 美 měi [meɪ] is the front
+  mid vowel of 也 yě [jɛ], while 么 me [mɤ] is a back vowel. Pinyin writes all
+  three with "e"; here they are 人+提, 人 and 了.
+* ㄣ en [ən], ㄥ eng [ɤŋ] and ㄦ er [ɚ] share the unrounded mid vowel of ㄜ, so
+  they are built on 了.
+* 人 (ê) is 八 (a) closed at the top: the jaw half shut.
 
-**A dot fronts a vowel**: ê is the front counterpart of e, and ü is the front
-counterpart of u. This is the role pinyin's ^ and ¨ play.
+The ending strokes:
 
-i, u and ü have flattened *glide* forms. On top they are the medial (gliding
-in), at the bottom they are a coda (gliding out). **Position tells glide from
-vowel; shape tells which sound.** Crossed glides (乂, 义) are never flattened
-past 2.3 : 1, so the cross stays readable.
+| ending | stroke | idea |
+|--------|--------|------|
+| -i | 提 ㇀ | rising: the tongue rises toward i |
+| -u | 卧钩 ㇃ | a bowl: the lips round toward u |
+| -n | 横 一 | a level bar: the tongue tip seals the mouth |
+| -ng | 横折钩 𠃌 | the same bar closed at the back, like the velar frame |
+| -r | 竖弯钩 乚 | the retroflex curl |
 
-## 4. Codas
+**儿化** adds the -r curl to any rhyme: huār ㄏㄨㄚㄦ is 八 with the curl, and
+diǎnr puts the bar and the curl side by side.
 
-A Mandarin syllable can only end in a glide (-i, -u) or a sonorant (-n, -ng, -r).
-Because nothing else can stand there, the coda drops every mark:
+## 4. Medials ㄧ ㄨ ㄩ
 
-| coda | written as | why |
-|------|-----------|-----|
-| -i (ai ei uai uei) | flattened 乙 | the vowel i, gliding out |
-| -u (ao ou iao iou) | flattened 乂 | the vowel u, gliding out (pinyin's *ao* is a + u) |
-| -n | bare 厂 | the alveolar frame: tongue tip up front |
-| -ng | bare 𠃌 | the velar frame: tongue root up at the back |
-| -r | bare 乚 | the retroflex frame: tongue tip curled (儿化, and the r of er) |
-| -m (呣 hm only) | bare 匚 | the labial frame |
+| glide | form | idea |
+|-------|------|------|
+| ㄧ i | 乙 | yǐ, one stroke |
+| ㄨ u | 乂 | zhuyin's own ㄨ, crossed strokes for pursed lips |
+| ㄩ ü | 乂 + 丶 (义) | u with the tongue pushed forward (the dot) |
 
--n and -ng differ only in frame, front 厂 vs back 𠃌, which is exactly the
-articulatory difference learners find hard to hear. A nasal with no vowel
-(嗯 ńg, 呣 m̀) is syllabic, and is written as the full consonant, mark included.
+When a rhyme follows, the glide is flattened on top of it. When the glide is
+the whole final (yi, wu, yu, ji, bu, lü …), it is written full size. Crossed
+glides (乂, 义) are never flattened past 2.3 : 1, so the cross stays readable.
 
 ## 5. Tones
 
-The tone mark sits at the top centre of the block. It uses **pinyin's own four
-marks**, drawn as brush strokes:
+The tone mark sits at the top centre of the block. It uses pinyin's four
+marks, drawn as brush strokes:
 
-| tone | pinyin | stroke |
-|------|--------|--------|
+| tone | mark | stroke |
+|------|------|--------|
 | 1 | ¯ | 横, short level stroke |
 | 2 | ´ | 提, rising from lower-left to upper-right |
 | 3 | ˇ | 点 + 提, down then up |
 | 4 | ` | 点, falling from upper-left to lower-right |
 | neutral | — | no mark |
 
-## 6. Spelling rules
+## 6. Every final
 
-The script spells what is pronounced, undoing pinyin's shortcuts:
-
-| pinyin | written as | note |
-|--------|-----------|------|
-| iu | i · o · u | 六 liù = l + i/o/u |
-| ui | u · e · i | 贵 guì = g + u/e/i |
-| un | u · e · n | 顿 dùn = d + u/e/n |
-| ju qu xu yu | j · ü … | the ü is always written |
-| ie, üe | i · ê, ü · ê | the open e |
-| ao, iao | a · u, i · a · u | the coda is u |
-| er | e + r | the same r coda as 儿化 |
-| y-, w- | medial i / u | y and w are just glides |
-| zi ci si zhi chi shi ri | initial alone | no vowel component |
-| ong, iong | o · ng, i · o · ng | as in pinyin |
-
-The full table of finals (medial · vowel · coda):
+A final is a medial, a rhyme, or a medial + rhyme, exactly as zhuyin writes it:
 
 ```
-a   ·a·      o   ·o·      e   ·e·      ê   ·ê·      er  ·e·r
-ai  ·a·i     ei  ·e·i     ao  ·a·u     ou  ·o·u
-an  ·a·n     en  ·e·n     ang ·a·ng    eng ·e·ng    ong ·o·ng
-i   ·i·      ia  i·a·     ie  i·ê·     iao i·a·u    iou i·o·u
-ian i·a·n    in  ·i·n     iang i·a·ng  ing ·i·ng    iong i·o·ng
-u   ·u·      ua  u·a·     uo  u·o·     uai u·a·i    uei u·e·i
-uan u·a·n    uen u·e·n    uang u·a·ng  ueng u·e·ng
-ü   ·ü·      üe  ü·ê·     üan ü·a·n    ün  ·ü·n
+ㄚ a     ㄛ o     ㄜ e     ㄝ ê     ㄞ ai    ㄟ ei    ㄠ ao    ㄡ ou
+ㄢ an    ㄣ en    ㄤ ang   ㄥ eng   ㄦ er
+ㄧ i     ㄧㄚ ia   ㄧㄝ ie   ㄧㄠ iao  ㄧㄡ iu   ㄧㄢ ian  ㄧㄣ in   ㄧㄤ iang  ㄧㄥ ing
+ㄨ u     ㄨㄚ ua   ㄨㄛ uo   ㄨㄞ uai  ㄨㄟ ui   ㄨㄢ uan  ㄨㄣ un   ㄨㄤ uang  ㄨㄥ ong / weng
+ㄩ ü     ㄩㄝ üe   ㄩㄢ üan  ㄩㄣ ün   ㄩㄥ iong
+(none) the buzzing -i of zi ci si zhi chi shi ri
 ```
+
+Note how pinyin's shortcuts disappear: in, ing, un, ün, ong and iong are a
+medial plus the rhymes ㄣ and ㄥ, and iu and ui show their middle vowel.
 
 ## 7. Assembly geometry
 
@@ -184,24 +171,25 @@ flattened component keeps its weight.
 | final (beside an initial) | 43, 21, 53, 76 | — |
 | final (alone) | 8, 21, 84, 76 | — |
 
-Inside the final column the parts share the height by weight: medial 0.34
-(ü 0.42), vowel 0.62, coda 0.32 (0.4 when it holds both a coda and r), with
-5.5 units between them. Glides use aspect 1.6–3.4 (crossed glides 1.6–2.3),
-bare-frame codas 1.5–3.0, and a stacked vowel 0.7–1.7.
+The medial and rhyme share the final's height by weight: medial 0.34 (ㄩ 0.42),
+rhyme 0.62 (0.95 when it has an ending stroke), with 6 units between them.
+Inside a rhyme the ending takes the bottom 30%, only 3% below the vowel, so the
+two read as one symbol. Rhyme aspect windows are 0.7–1.7 under a medial,
+0.5–1.0 beside an initial alone, and 0.7–1.06 filling the block.
 
 ## 8. Known trade-offs
 
-* **乙 (i) and 乚 (zh, and the r coda)** share a bottom curve. They differ in
+* **乙 (ㄧ) and 乚 (zh, and the -r curl)** share a bottom curve. They differ in
   their top, a horizontal-plus-diagonal against a plain vertical, and in
   position.
+* **八 (ㄚ) and 人 (ㄝ)** differ only in whether the two strokes meet at the
+  top. That mirrors the sounds (open vs half-open jaw), but they must be kept
+  well apart in small sizes.
 * **匚 凵 冂** are rotations of one box. That is the point (closed side =
   place of closure), but it asks the reader to notice orientation.
 * **一 and 丶 inside a narrow frame** (p vs m, t vs n) are small at small
   sizes. They differ in direction (level vs slanted).
-* Some blocks coincide with real characters or components: 七-like ch, 勹-like
-  h, and ü looks like 义. Japanese kana live with the same kind of overlap
-  (カ/力, ロ/口).
-* *bo po mo fo* are written with plain o, as in pinyin and zhuyin, although
-  they are pronounced [uo].
+* *bo po mo fo* are written with ㄛ, as in zhuyin, although they are
+  pronounced [uo].
 * Hanzi input is read character by character from a dictionary, plus a small
   table of common context-dependent words. Pinyin and zhuyin input are exact.

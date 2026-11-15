@@ -5,7 +5,7 @@ mod phonology;
 use dioxus::prelude::*;
 use glyph::{Layer, Part, Role};
 use parse::{Item, SylItem};
-use phonology::{Coda, Consonant, Manner, Place, Syllable, Tone, Vowel};
+use phonology::{Coda, Consonant, Manner, Place, Syllable, Tone, Vowel, R_IDEA, R_STROKE};
 
 const CSS: Asset = asset!("/assets/main.css");
 
@@ -23,6 +23,41 @@ const EXAMPLES: &[(&str, &str)] = &[
     ("Sandhi", "你好！一个，一天，不是，不对，很好。"),
 ];
 
+/// What to print under each block.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Captions {
+    Off,
+    Pinyin,
+    Zhuyin,
+    Both,
+}
+
+impl Captions {
+    const ALL: [Captions; 4] = [Captions::Zhuyin, Captions::Pinyin, Captions::Both, Captions::Off];
+
+    fn key(self) -> &'static str {
+        match self {
+            Captions::Off => "off",
+            Captions::Pinyin => "pinyin",
+            Captions::Zhuyin => "zhuyin",
+            Captions::Both => "both",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Captions::Off => "No captions",
+            Captions::Pinyin => "Pinyin captions",
+            Captions::Zhuyin => "Zhuyin captions",
+            Captions::Both => "Zhuyin + pinyin",
+        }
+    }
+
+    fn from_key(k: &str) -> Captions {
+        Captions::ALL.into_iter().find(|c| c.key() == k).unwrap_or(Captions::Zhuyin)
+    }
+}
+
 fn syl(p: &str) -> Syllable {
     parse::parse_pinyin_token(p)
         .and_then(|v| v.into_iter().next())
@@ -34,7 +69,7 @@ fn syl(p: &str) -> Syllable {
 fn App() -> Element {
     let mut input = use_signal(|| EXAMPLES[0].1.to_string());
     let mut size = use_signal(|| 84u32);
-    let mut captions = use_signal(|| true);
+    let mut captions = use_signal(|| Captions::Zhuyin);
     let mut colorize = use_signal(|| false);
     let mut sandhi = use_signal(|| false);
     let mut selected = use_signal(|| None::<usize>);
@@ -95,13 +130,14 @@ fn App() -> Element {
                         }
                     }
                     div { class: "toggles",
-                        label { class: "toggle",
-                            input {
-                                r#type: "checkbox",
-                                checked: captions(),
-                                onchange: move |e| captions.set(e.checked()),
+                        select {
+                            class: "caption-select",
+                            "aria-label": "Captions",
+                            value: "{captions().key()}",
+                            onchange: move |e| captions.set(Captions::from_key(&e.value())),
+                            for c in Captions::ALL {
+                                option { value: "{c.key()}", selected: captions() == c, "{c.label()}" }
                             }
-                            "Pinyin captions"
                         }
                         label { class: "toggle",
                             input {
@@ -219,22 +255,28 @@ fn ItemView(
     item: Item,
     index: usize,
     size: u32,
-    captions: bool,
+    captions: Captions,
     selected: bool,
     on_select: EventHandler<usize>,
 ) -> Element {
     match item {
         Item::Syl(s) => {
             let tip = format!("{}  ·  {}  ·  {}", s.source, s.syl.pinyin(), s.syl.zhuyin());
-            let caption = s.syl.pinyin();
+            let pinyin = s.syl.pinyin();
+            let zhuyin = s.syl.zhuyin();
+            let show_zhuyin = matches!(captions, Captions::Zhuyin | Captions::Both);
+            let show_pinyin = matches!(captions, Captions::Pinyin | Captions::Both);
             rsx! {
                 button {
                     class: if selected { "cell selected" } else { "cell" },
                     title: "{tip}",
                     onclick: move |_| on_select.call(index),
                     Glyph { syl: s.syl, size, sandhi: s.sandhi_from.is_some() }
-                    if captions {
-                        span { class: "cap", "{caption}" }
+                    if show_zhuyin {
+                        span { class: "cap zhuyin", "{zhuyin}" }
+                    }
+                    if show_pinyin {
+                        span { class: "cap", "{pinyin}" }
                     }
                 }
             }
@@ -329,28 +371,29 @@ fn Reference() -> Element {
         section { class: "panel reference colorize",
             h2 { "The script" }
             p { class: "lede",
-                "Every syllable is one square block, like a Chinese character. A block is assembled from at most six parts that always sit in the same places, and every part is only one or two strokes, so a reader who knows six frames, four marks and seven vowels can read any Mandarin syllable. Nothing about a block depends on its neighbours."
+                "Every syllable is one square block, like a Chinese character. It is cut up the way zhuyin cuts it: an initial consonant, a medial glide (ㄧ ㄨ ㄩ) and one rhyme, plus the tone. Each of those is a single symbol, and each symbol is one sound. Nothing about a block depends on its neighbours."
             }
 
             h3 { "1 · Where the parts go" }
             div { class: "anatomy",
                 SlotDiagram {}
                 div { class: "anatomy-examples",
-                    Labeled { syl: syl("zhuāng"), label: "zhuāng: all slots".to_string(), size: 96 }
-                    Labeled { syl: syl("xué"), label: "xué".to_string(), size: 96 }
-                    Labeled { syl: syl("yǒu"), label: "yǒu: no initial".to_string(), size: 96 }
-                    Labeled { syl: syl("shì"), label: "shì: initial only".to_string(), size: 96 }
-                    Labeled { syl: syl("huār"), label: "huār: with 儿化".to_string(), size: 96 }
+                    Labeled { syl: syl("zhuāng"), label: "ㄓㄨㄤ zhuāng".to_string(), size: 96 }
+                    Labeled { syl: syl("liù"), label: "ㄌㄧㄡ liù".to_string(), size: 96 }
+                    Labeled { syl: syl("guì"), label: "ㄍㄨㄟ guì".to_string(), size: 96 }
+                    Labeled { syl: syl("yǒu"), label: "ㄧㄡ yǒu".to_string(), size: 96 }
+                    Labeled { syl: syl("shì"), label: "ㄕ shì".to_string(), size: 96 }
                 }
             }
             ol { class: "rules",
-                li { b { "Tone" } " sits top-centre, above everything, using pinyin's own four marks drawn as brush strokes. The neutral tone has no mark." }
+                li { b { "Tone" } " sits top-centre, above everything, using pinyin's four marks drawn as brush strokes. The neutral tone has no mark." }
                 li { b { "Initial" } " (consonant) stands on the left like a radical, the left–right structure of 好 or 吃." }
-                li { b { "Final" } " stacks on the right from top to bottom, like the right half of 漫: " i { "medial" } " glide, main " i { "vowel" } ", " i { "coda" } ". Glides and codas are flattened, like 艹 on top or 灬 below, so the vowel stays the visual centre." }
-                li { "With no initial (a, yi, wu, yu …) the final takes the full width. With an empty rhyme (zi ci si zhi chi shi ri) the initial fills the block on its own, as in zhuyin." }
-                li { "Spelling is phonemic, one sound per component: " code { "iu" } " is i·o·u, " code { "ui" } " is u·e·i, " code { "un" } " is u·e·n, " code { "ju" } " is j·ü, " code { "ie" } " is i·ê, " code { "ao" } " is a·u, " code { "er" } " is e + r. Pinyin's y/w spellings disappear." }
+                li { b { "Medial" } " ㄧ ㄨ ㄩ is flattened on top of the rhyme, the way 艹 sits on top of a character." }
+                li { b { "Rhyme" } " is one symbol: its vowel plus at most one ending stroke. Rhymes with the same vowel sound share that vowel (ㄚ → ㄞ ㄠ ㄢ ㄤ); different vowel sounds never share a shape, so ㄜ (me), ㄟ (mei) and ㄝ (ye) look unrelated." }
+                li { "Nothing is hidden or dropped: liu is ㄌㄧㄡ, gui is ㄍㄨㄟ, dun is ㄉㄨㄣ, ju is ㄐㄩ, and in, ing, ong are ㄧㄣ, ㄧㄥ, ㄨㄥ, all exactly as in zhuyin." }
+                li { "With no initial (ㄚ, ㄧ, ㄨㄛ …) the final takes the full width. With the buzzing vowel of zi ci si zhi chi shi ri, the initial fills the block on its own." }
                 li { "Tone sandhi is the only change between neighbouring syllables, and like a dictionary the script writes the citation tone. Turn on " i { "Tone sandhi" } " to see the spoken tones instead." }
-                li { "Every part is one or two strokes, and only the classical strokes are used: 横 竖 撇 点 捺 提 and their 折 / 钩 / 弯 compounds, at one constant weight." }
+                li { "Every symbol is one to three strokes, using only the classical strokes 横 竖 撇 点 捺 提 and their 折 / 钩 / 弯 compounds, at one constant weight." }
             }
 
             h3 { "2 · Initials: frame = place, inner mark = manner" }
@@ -359,22 +402,33 @@ fn Reference() -> Element {
             }
             InitialChart {}
 
-            h3 { "3 · Vowels" }
+            h3 { "3 · Rhymes: thirteen symbols, one per sound" }
             p { class: "muted",
-                "Vowels are free-standing strokes, consonants are frames, so the two never look alike. A dot fronts a vowel: e → ê, u → ü. i, u and ü have a flattened form for when they glide: on top as a medial, at the bottom as a coda."
+                "Zhuyin's thirteen rhymes, each written as one symbol. The four vowel sounds each get their own shape (rows). A rhyme ending in a glide or a nasal adds a single stroke to its vowel (columns), the same stroke for every vowel: a rising 提 for -i, a bowl for -u, a bar for -n, the bar closed at the back for -ng, and the retroflex curl for -r. 儿化 adds that same curl to any rhyme: huār is ㄏㄨㄚㄦ, the ㄚ symbol with the curl."
             }
-            VowelChart {}
+            RhymeChart {}
 
-            h3 { "4 · Codas" }
+            h3 { "4 · Medials ㄧ ㄨ ㄩ" }
             p { class: "muted",
-                "The syllable's ending reuses what you already know. -i and -u are the flattened vowels. After a vowel only n, ng or r can follow, so those are written as the bare frame of their place with no mark: 厂 front for -n, 𠃌 back for -ng, and the curl 乚 for -r. The frame alone shows the n/ng difference."
+                "The three glides are written full size when they are the whole final (ㄧ yi, ㄨ wu, ㄩ yu) and flattened on top when a rhyme follows (ㄧㄚ, ㄨㄛ, ㄩㄝ)."
             }
             div { class: "row",
-                PartCard { part: Part::Glide(Vowel::I), title: "-i", sub: "乙 flat · ai ei uai uei" }
-                PartCard { part: Part::Glide(Vowel::U), title: "-u", sub: "乂 flat · ao ou iao iou" }
-                PartCard { part: Part::Coda(Coda::N), title: "-n", sub: "bare 厂 · an en in un" }
-                PartCard { part: Part::Coda(Coda::Ng), title: "-ng", sub: "bare 𠃌 · ang eng ing ong" }
-                PartCard { part: Part::Rhotic, title: "-r", sub: "bare 乚 · er and 儿化" }
+                for v in [Vowel::I, Vowel::U, Vowel::Yu] {
+                    figure { class: "vowel-card",
+                        div { class: "vowel-forms",
+                            PartGlyph { part: Part::Vowel(v), size: 72 }
+                            div { class: "glide",
+                                PartGlyph { part: Part::Glide(v), size: 48 }
+                                span { class: "muted", "medial" }
+                            }
+                        }
+                        figcaption {
+                            b { "{v.zhuyin()} {v.pinyin()}" }
+                            span { class: "comp", " {v.component()}" }
+                            div { class: "muted small", "{v.idea()}" }
+                        }
+                    }
+                }
             }
 
             h3 { "5 · Tones" }
@@ -394,7 +448,7 @@ fn Reference() -> Element {
             }
 
             h3 { "6 · Every final" }
-            p { class: "muted", "Each final on its own (left) and after a consonant (right)." }
+            p { class: "muted", "In zhuyin order. Each final on its own (left) and after a consonant (right)." }
             FinalsChart {}
         }
     }
@@ -411,28 +465,13 @@ fn tone_title(t: Tone) -> &'static str {
 }
 
 #[component]
-fn PartCard(part: Part, title: String, sub: String) -> Element {
-    rsx! {
-        figure { class: "part-card",
-            PartGlyph { part, size: 72 }
-            figcaption {
-                b { "{title}" }
-                span { class: "muted", "{sub}" }
-            }
-        }
-    }
-}
-
-#[component]
 fn SlotDiagram() -> Element {
-    // A schematic of the block with the six slots outlined.
-    let boxes: [(f32, f32, f32, f32, &str, &str); 6] = [
+    // A schematic of the block with the four slots outlined.
+    let boxes: [(f32, f32, f32, f32, &str, &str); 4] = [
         (34.0, 2.0, 32.0, 15.0, "tone", "r-tone"),
         (4.0, 21.0, 33.0, 76.0, "initial", "r-initial"),
-        (43.0, 21.0, 53.0, 20.0, "medial", "r-medial"),
-        (43.0, 46.0, 53.0, 26.0, "vowel", "r-nucleus"),
-        (43.0, 77.0, 53.0, 20.0, "coda", "r-coda"),
-        (43.0, 77.0, 0.0, 0.0, "", ""),
+        (43.0, 21.0, 53.0, 22.0, "medial", "r-medial"),
+        (43.0, 49.0, 53.0, 48.0, "rhyme", "r-rhyme"),
     ];
     rsx! {
         svg { class: "slots", width: "220", height: "220", view_box: "-2 -2 104 104",
@@ -443,7 +482,7 @@ fn SlotDiagram() -> Element {
                 height: "100",
                 class: "slot-frame",
             }
-            for (x , y , w , h , label , class) in boxes.into_iter().filter(|b| b.2 > 0.0) {
+            for (x , y , w , h , label , class) in boxes {
                 g { class: "{class}",
                     rect {
                         x: "{x}",
@@ -509,40 +548,86 @@ fn InitialCell(c: Consonant) -> Element {
             td { class: "empty" }
         };
     }
-    let coda_only = c == Consonant::NG;
+    let syllabic_only = c == Consonant::NG;
     rsx! {
         td {
             PartGlyph { part: Part::Consonant(c), size: 58 }
             div { class: "cell-label",
-                b { "{c.pinyin()}" }
-                span { class: "muted", " {c.zhuyin()}" }
+                b { "{c.zhuyin()} " }
+                span { class: "muted", "{c.pinyin()}" }
             }
-            if coda_only {
-                div { class: "th-idea", "only in 嗯 ńg; as a coda, the bare frame" }
+            if syllabic_only {
+                div { class: "th-idea", "only in 嗯 ńg" }
             }
         }
     }
 }
 
+/// Ending columns of the rhyme chart; `None` inside is the r curl.
+const ENDINGS: [Option<Option<Coda>>; 6] = [
+    None,
+    Some(Some(Coda::I)),
+    Some(Some(Coda::U)),
+    Some(Some(Coda::N)),
+    Some(Some(Coda::Ng)),
+    Some(None),
+];
+
+fn rhyme_of(v: Vowel, e: Option<Option<Coda>>) -> Syllable {
+    Syllable {
+        nucleus: Some(v),
+        coda: e.flatten(),
+        rhotic: e == Some(None),
+        ..Syllable::empty()
+    }
+}
+
 #[component]
-fn VowelChart() -> Element {
+fn RhymeChart() -> Element {
     rsx! {
-        div { class: "row",
-            for v in Vowel::ALL {
-                figure { class: "vowel-card",
-                    div { class: "vowel-forms",
-                        PartGlyph { part: Part::Vowel(v), size: 72 }
-                        if matches!(v, Vowel::I | Vowel::U | Vowel::Yu) {
-                            div { class: "glide",
-                                PartGlyph { part: Part::Glide(v), size: 48 }
-                                span { class: "muted", "glide" }
+        div { class: "table-wrap",
+            table { class: "chart rhymes",
+                thead {
+                    tr {
+                        th {}
+                        for e in ENDINGS {
+                            th {
+                                match e {
+                                    None => rsx! {
+                                        div { class: "th-title", "Vowel alone" }
+                                        div { class: "th-idea", "no ending" }
+                                    },
+                                    Some(c) => {
+                                        let (name, stroke, idea) = match c {
+                                            Some(c) => (format!("-{}", c.pinyin()), c.stroke(), c.idea()),
+                                            None => ("-r".to_string(), R_STROKE, R_IDEA),
+                                        };
+                                        rsx! {
+                                            div { class: "end-glyph",
+                                                PartGlyph { part: Part::Ending(c), size: 40 }
+                                            }
+                                            div { class: "th-title", "{name}" }
+                                            div { class: "th-mark small-mark", "{stroke}" }
+                                            div { class: "th-idea", "{idea}" }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                    figcaption {
-                        b { "{v.pinyin()}" }
-                        span { class: "comp", " {v.component()}" }
-                        div { class: "muted small", "{v.idea()}" }
+                }
+                tbody {
+                    for v in [Vowel::A, Vowel::O, Vowel::E, Vowel::Ehat] {
+                        tr {
+                            th { class: "row-head",
+                                div { class: "th-mark big", "{v.component()}" }
+                                div { class: "th-title", "{v.zhuyin()} {v.pinyin()}" }
+                                div { class: "th-idea", "{v.idea()}" }
+                            }
+                            for e in ENDINGS {
+                                RhymeCell { s: rhyme_of(v, e) }
+                            }
+                        }
                     }
                 }
             }
@@ -550,55 +635,83 @@ fn VowelChart() -> Element {
     }
 }
 
-/// (final, zero-initial example, example with a consonant)
-const FINAL_EXAMPLES: &[(&str, &str, &str)] = &[
-    ("a", "a", "ba"),
-    ("o", "o", "bo"),
-    ("e", "e", "de"),
-    ("ê", "ê", ""),
-    ("ai", "ai", "dai"),
-    ("ei", "ei", "bei"),
-    ("ao", "ao", "dao"),
-    ("ou", "ou", "dou"),
-    ("an", "an", "dan"),
-    ("en", "en", "ben"),
-    ("ang", "ang", "dang"),
-    ("eng", "eng", "deng"),
-    ("ong", "", "dong"),
-    ("er", "er", ""),
-    ("-i", "", "zhi"),
-    ("i", "yi", "di"),
-    ("ia", "ya", "jia"),
-    ("ie", "ye", "die"),
-    ("iao", "yao", "diao"),
-    ("iu (iou)", "you", "diu"),
-    ("ian", "yan", "dian"),
-    ("in", "yin", "bin"),
-    ("iang", "yang", "jiang"),
-    ("ing", "ying", "ding"),
-    ("iong", "yong", "jiong"),
-    ("u", "wu", "du"),
-    ("ua", "wa", "gua"),
-    ("uo", "wo", "duo"),
-    ("uai", "wai", "guai"),
-    ("ui (uei)", "wei", "dui"),
-    ("uan", "wan", "duan"),
-    ("un (uen)", "wen", "dun"),
-    ("uang", "wang", "guang"),
-    ("ueng", "weng", ""),
-    ("ü", "yu", "lü"),
-    ("üe", "yue", "jue"),
-    ("üan", "yuan", "juan"),
-    ("ün", "yun", "jun"),
+#[component]
+fn RhymeCell(s: Syllable) -> Element {
+    let zhuyin = s.rhyme_zhuyin();
+    // the r column holds only ㄦ; 儿化 on other rhymes is explained in the text
+    if zhuyin.is_empty() || (s.rhotic && s.nucleus != Some(Vowel::E)) {
+        return rsx! {
+            td { class: "empty" }
+        };
+    }
+    let Some(v) = s.nucleus else {
+        return rsx! {
+            td { class: "empty" }
+        };
+    };
+    let name = s.rhyme_name();
+    rsx! {
+        td {
+            PartGlyph { part: Part::Rhyme(v, s.coda, s.rhotic), size: 64 }
+            div { class: "cell-label",
+                b { "{zhuyin} " }
+                span { class: "muted", "{name}" }
+            }
+        }
+    }
+}
+
+/// (zhuyin, pinyin, zero-initial example, example with a consonant)
+const FINAL_EXAMPLES: &[(&str, &str, &str, &str)] = &[
+    ("ㄚ", "a", "a", "ba"),
+    ("ㄛ", "o", "o", "bo"),
+    ("ㄜ", "e", "e", "de"),
+    ("ㄝ", "ê", "ê", ""),
+    ("ㄞ", "ai", "ai", "dai"),
+    ("ㄟ", "ei", "ei", "bei"),
+    ("ㄠ", "ao", "ao", "dao"),
+    ("ㄡ", "ou", "ou", "dou"),
+    ("ㄢ", "an", "an", "dan"),
+    ("ㄣ", "en", "en", "ben"),
+    ("ㄤ", "ang", "ang", "dang"),
+    ("ㄥ", "eng", "", "deng"),
+    ("ㄦ", "er", "er", ""),
+    ("(none)", "-i", "", "zhi"),
+    ("ㄧ", "i", "yi", "di"),
+    ("ㄧㄚ", "ia", "ya", "jia"),
+    ("ㄧㄝ", "ie", "ye", "die"),
+    ("ㄧㄠ", "iao", "yao", "diao"),
+    ("ㄧㄡ", "iu", "you", "diu"),
+    ("ㄧㄢ", "ian", "yan", "dian"),
+    ("ㄧㄣ", "in", "yin", "bin"),
+    ("ㄧㄤ", "iang", "yang", "jiang"),
+    ("ㄧㄥ", "ing", "ying", "ding"),
+    ("ㄨ", "u", "wu", "du"),
+    ("ㄨㄚ", "ua", "wa", "gua"),
+    ("ㄨㄛ", "uo", "wo", "duo"),
+    ("ㄨㄞ", "uai", "wai", "guai"),
+    ("ㄨㄟ", "ui", "wei", "dui"),
+    ("ㄨㄢ", "uan", "wan", "duan"),
+    ("ㄨㄣ", "un", "wen", "dun"),
+    ("ㄨㄤ", "uang", "wang", "guang"),
+    ("ㄨㄥ", "ong / weng", "weng", "dong"),
+    ("ㄩ", "ü", "yu", "lü"),
+    ("ㄩㄝ", "üe", "yue", "jue"),
+    ("ㄩㄢ", "üan", "yuan", "juan"),
+    ("ㄩㄣ", "ün", "yun", "jun"),
+    ("ㄩㄥ", "iong", "yong", "jiong"),
 ];
 
 #[component]
 fn FinalsChart() -> Element {
     rsx! {
         div { class: "finals",
-            for (name , bare , with) in FINAL_EXAMPLES.iter() {
+            for (zhuyin , pinyin , bare , with) in FINAL_EXAMPLES.iter() {
                 div { class: "final-card",
-                    div { class: "final-name", "{name}" }
+                    div { class: "final-name",
+                        span { class: "zy", "{zhuyin}" }
+                        span { class: "muted", " {pinyin}" }
+                    }
                     div { class: "final-glyphs",
                         if !bare.is_empty() {
                             Labeled { syl: syl(bare), label: bare.to_string(), size: 56 }

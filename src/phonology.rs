@@ -215,16 +215,6 @@ pub enum Vowel {
 }
 
 impl Vowel {
-    pub const ALL: [Vowel; 7] = [
-        Vowel::A,
-        Vowel::O,
-        Vowel::E,
-        Vowel::Ehat,
-        Vowel::I,
-        Vowel::U,
-        Vowel::Yu,
-    ];
-
     pub fn pinyin(self) -> &'static str {
         match self {
             Vowel::A => "a",
@@ -237,12 +227,24 @@ impl Vowel {
         }
     }
 
+    pub fn zhuyin(self) -> &'static str {
+        match self {
+            Vowel::A => "ㄚ",
+            Vowel::O => "ㄛ",
+            Vowel::E => "ㄜ",
+            Vowel::Ehat => "ㄝ",
+            Vowel::I => "ㄧ",
+            Vowel::U => "ㄨ",
+            Vowel::Yu => "ㄩ",
+        }
+    }
+
     pub fn component(self) -> &'static str {
         match self {
             Vowel::A => "八",
             Vowel::O => "又",
             Vowel::E => "了",
-            Vowel::Ehat => "了 + 丶",
+            Vowel::Ehat => "人",
             Vowel::I => "乙",
             Vowel::U => "乂",
             Vowel::Yu => "乂 + 丶",
@@ -251,13 +253,13 @@ impl Vowel {
 
     pub fn idea(self) -> &'static str {
         match self {
-            Vowel::A => "八 bā: lips and jaw spread wide open",
-            Vowel::O => "the crossing of u under a lid: rounded, but more open",
-            Vowel::E => "了 le: the neutral e",
-            Vowel::Ehat => "e plus the fronting dot (pinyin ê)",
+            Vowel::A => "八 bā: the jaw wide open",
+            Vowel::O => "又: a rounded loop",
+            Vowel::E => "了 le: the unrounded mid vowel of 哥, 根 and 冷",
+            Vowel::Ehat => "the front mid vowel of 也 yě, 谢 xiè and 美 měi: half-closed 八",
             Vowel::I => "乙 yǐ: one stroke",
             Vowel::U => "zhuyin's ㄨ: crossed strokes for pursed lips",
-            Vowel::Yu => "u plus the fronting dot, like pinyin's ü (looks like 义)",
+            Vowel::Yu => "u with the tongue pushed forward (the dot), like pinyin's ü",
         }
     }
 }
@@ -296,15 +298,31 @@ impl Coda {
         }
     }
 
-    /// Vowel off-glides are written with the vowel's flattened form.
-    pub fn vowel(self) -> Option<Vowel> {
+    /// The single stroke a rhyme adds to its vowel for this ending.
+    pub fn stroke(self) -> &'static str {
         match self {
-            Coda::I => Some(Vowel::I),
-            Coda::U => Some(Vowel::U),
-            _ => None,
+            Coda::I => "提 ㇀",
+            Coda::U => "卧钩 ㇃",
+            Coda::N => "横 一",
+            Coda::Ng => "横折钩 𠃌",
+            Coda::M => "匚 + 丶",
+        }
+    }
+
+    pub fn idea(self) -> &'static str {
+        match self {
+            Coda::I => "a rising stroke: the tongue rises toward i",
+            Coda::U => "a bowl: the lips round toward u",
+            Coda::N => "a level bar: the tongue tip seals the mouth",
+            Coda::Ng => "the same bar closed at the back, like the velar frame",
+            Coda::M => "only in interjections (呣, 噷)",
         }
     }
 }
+
+/// The 儿化 / er ending stroke.
+pub const R_STROKE: &str = "竖弯钩 乚";
+pub const R_IDEA: &str = "the retroflex curl: the tongue tip curls up";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Tone {
@@ -383,8 +401,9 @@ pub struct Syllable {
     pub tone: Tone,
 }
 
-/// Every Pinyin final, fully spelled out (iou, uei, uen, ü…), with its
-/// (medial, nucleus, coda) decomposition.
+/// Every Pinyin final with its zhuyin-style decomposition into
+/// medial (ㄧ ㄨ ㄩ) + rhyme, the rhyme being vowel + ending.
+/// in = ㄧㄣ, ing = ㄧㄥ, ün = ㄩㄣ, ong = ㄨㄥ, iong = ㄩㄥ, iu = ㄧㄡ, ui = ㄨㄟ.
 pub const FINALS: &[(&str, Option<Vowel>, Vowel, Option<Coda>)] = {
     use Coda as C;
     use Vowel::*;
@@ -394,14 +413,16 @@ pub const FINALS: &[(&str, Option<Vowel>, Vowel, Option<Coda>)] = {
         ("e", None, E, None),
         ("ê", None, Ehat, None),
         ("ai", None, A, Some(C::I)),
-        ("ei", None, E, Some(C::I)),
+        // ei [eɪ] starts on the front vowel of ie / ê, not the e of 哥
+        ("ei", None, Ehat, Some(C::I)),
         ("ao", None, A, Some(C::U)),
         ("ou", None, O, Some(C::U)),
         ("an", None, A, Some(C::N)),
         ("en", None, E, Some(C::N)),
         ("ang", None, A, Some(C::Ng)),
         ("eng", None, E, Some(C::Ng)),
-        ("ong", None, O, Some(C::Ng)),
+        // zhuyin ㄨㄥ: the same final as weng, written ong after a consonant
+        ("ong", Some(U), E, Some(C::Ng)),
         ("i", None, I, None),
         ("ia", Some(I), A, None),
         ("io", Some(I), O, None),
@@ -410,15 +431,15 @@ pub const FINALS: &[(&str, Option<Vowel>, Vowel, Option<Coda>)] = {
         ("iao", Some(I), A, Some(C::U)),
         ("iou", Some(I), O, Some(C::U)),
         ("ian", Some(I), A, Some(C::N)),
-        ("in", None, I, Some(C::N)),
+        ("in", Some(I), E, Some(C::N)),
         ("iang", Some(I), A, Some(C::Ng)),
-        ("ing", None, I, Some(C::Ng)),
-        ("iong", Some(I), O, Some(C::Ng)),
+        ("ing", Some(I), E, Some(C::Ng)),
+        ("iong", Some(Yu), E, Some(C::Ng)),
         ("u", None, U, None),
         ("ua", Some(U), A, None),
         ("uo", Some(U), O, None),
         ("uai", Some(U), A, Some(C::I)),
-        ("uei", Some(U), E, Some(C::I)),
+        ("uei", Some(U), Ehat, Some(C::I)),
         ("uan", Some(U), A, Some(C::N)),
         ("uen", Some(U), E, Some(C::N)),
         ("uang", Some(U), A, Some(C::Ng)),
@@ -426,7 +447,7 @@ pub const FINALS: &[(&str, Option<Vowel>, Vowel, Option<Coda>)] = {
         ("ü", None, Yu, None),
         ("üe", Some(Yu), Ehat, None),
         ("üan", Some(Yu), A, Some(C::N)),
-        ("ün", None, Yu, Some(C::N)),
+        ("ün", Some(Yu), E, Some(C::N)),
     ]
 };
 
@@ -547,7 +568,7 @@ impl Syllable {
             s.push_str(m.pinyin());
         }
         match self.nucleus {
-            Some(Vowel::Ehat) if self.medial.is_some() => s.push('e'),
+            Some(Vowel::Ehat) if self.medial.is_some() || self.coda.is_some() => s.push('e'),
             Some(v) => s.push_str(v.pinyin()),
             None => {}
         }
@@ -555,6 +576,62 @@ impl Syllable {
             Some(Coda::U) if self.nucleus == Some(Vowel::A) => s.push('o'),
             Some(c) => s.push_str(c.pinyin()),
             None => {}
+        }
+        // pinyin's own spellings of the zhuyin finals ㄧㄣ ㄧㄥ ㄩㄣ ㄩㄥ ㄨㄥ
+        match s.as_str() {
+            "ien" => "in".to_string(),
+            "ieng" => "ing".to_string(),
+            "üen" => "ün".to_string(),
+            "üeng" => "iong".to_string(),
+            "ueng" if self.initial.is_some() => "ong".to_string(),
+            _ => s,
+        }
+    }
+
+    /// The rhyme in zhuyin: one of ㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ, or ㄧㄨㄩ when
+    /// the glide stands alone.
+    pub fn rhyme_zhuyin(&self) -> &'static str {
+        use Vowel::*;
+        match (self.nucleus, self.coda) {
+            (Some(E), None) if self.rhotic => "ㄦ",
+            (Some(A), None) => "ㄚ",
+            (Some(O), None) => "ㄛ",
+            (Some(E), None) => "ㄜ",
+            (Some(Ehat), None) => "ㄝ",
+            (Some(A), Some(Coda::I)) => "ㄞ",
+            (Some(Ehat), Some(Coda::I)) => "ㄟ",
+            (Some(A), Some(Coda::U)) => "ㄠ",
+            (Some(O), Some(Coda::U)) => "ㄡ",
+            (Some(A), Some(Coda::N)) => "ㄢ",
+            (Some(E), Some(Coda::N)) => "ㄣ",
+            (Some(A), Some(Coda::Ng)) => "ㄤ",
+            (Some(E), Some(Coda::Ng)) => "ㄥ",
+            (Some(I), None) => "ㄧ",
+            (Some(U), None) => "ㄨ",
+            (Some(Yu), None) => "ㄩ",
+            (None, Some(Coda::M)) => "ㄇ",
+            (None, Some(Coda::N)) => "ㄣ",
+            (None, Some(Coda::Ng)) => "ㄫ",
+            _ => "",
+        }
+    }
+
+    /// The rhyme (vowel + ending) as one sound, e.g. "ao", "ong", "er".
+    pub fn rhyme_name(&self) -> String {
+        let Some(n) = self.nucleus else {
+            return String::new();
+        };
+        let bare = Syllable {
+            initial: None,
+            medial: None,
+            nucleus: Some(n),
+            coda: self.coda,
+            rhotic: false,
+            tone: Tone::Neutral,
+        };
+        let mut s = bare.final_key();
+        if self.rhotic {
+            s.push('r');
         }
         s
     }
@@ -606,49 +683,10 @@ impl Syllable {
         if let Some(c) = self.initial {
             s.push_str(c.zhuyin());
         }
-        let medial = |v: Vowel| match v {
-            Vowel::I => "ㄧ",
-            Vowel::U => "ㄨ",
-            _ => "ㄩ",
-        };
-        use Vowel::*;
-        let rhyme: &str = match (self.medial, self.nucleus, self.coda) {
-            (_, None, Some(c)) => match c {
-                Coda::M => "ㄇ",
-                Coda::N => "ㄣ",
-                _ => "ㄫ",
-            },
-            (_, None, None) => "",
-            (None, Some(I), None) => "ㄧ",
-            (None, Some(I), Some(Coda::N)) => "ㄧㄣ",
-            (None, Some(I), Some(Coda::Ng)) => "ㄧㄥ",
-            (None, Some(U), None) => "ㄨ",
-            (None, Some(Yu), None) => "ㄩ",
-            (None, Some(Yu), Some(Coda::N)) => "ㄩㄣ",
-            (None, Some(O), Some(Coda::Ng)) => "ㄨㄥ",
-            (Some(I), Some(O), Some(Coda::Ng)) => "ㄩㄥ",
-            (None, Some(E), None) if self.rhotic => "ㄦ",
-            (m, Some(n), c) => {
-                if let Some(m) = m {
-                    s.push_str(medial(m));
-                }
-                match (n, c) {
-                    (A, None) => "ㄚ",
-                    (O, None) => "ㄛ",
-                    (E, None) => "ㄜ",
-                    (Ehat, None) => "ㄝ",
-                    (A, Some(Coda::I)) => "ㄞ",
-                    (E, Some(Coda::I)) => "ㄟ",
-                    (A, Some(Coda::U)) => "ㄠ",
-                    (O, Some(Coda::U)) => "ㄡ",
-                    (A, Some(Coda::N)) => "ㄢ",
-                    (E, Some(Coda::N)) => "ㄣ",
-                    (A, Some(Coda::Ng)) => "ㄤ",
-                    (E, Some(Coda::Ng)) => "ㄥ",
-                    _ => "",
-                }
-            }
-        };
+        if let Some(m) = self.medial {
+            s.push_str(m.zhuyin());
+        }
+        let rhyme = self.rhyme_zhuyin();
         s.push_str(rhyme);
         if self.rhotic && !s.ends_with('ㄦ') {
             s.push('ㄦ');
@@ -760,6 +798,8 @@ mod tests {
     fn finals_table_round_trips() {
         for (key, medial, nucleus, coda) in FINALS {
             let syl = Syllable {
+                // ong only exists after a consonant
+                initial: (*key == "ong").then_some(Consonant::H),
                 medial: *medial,
                 nucleus: Some(*nucleus),
                 coda: *coda,
@@ -819,5 +859,25 @@ mod tests {
         assert_eq!(p("er").with_tone(Tone::Fourth).zhuyin(), "ㄦˋ");
         assert_eq!(p("ying").with_tone(Tone::First).zhuyin(), "ㄧㄥ");
         assert_eq!(p("gui").with_tone(Tone::Fourth).zhuyin(), "ㄍㄨㄟˋ");
+        assert_eq!(p("jin").with_tone(Tone::First).zhuyin(), "ㄐㄧㄣ");
+        assert_eq!(p("yun").with_tone(Tone::Second).zhuyin(), "ㄩㄣˊ");
+        assert_eq!(p("weng").with_tone(Tone::First).zhuyin(), "ㄨㄥ");
+        assert_eq!(p("mei").with_tone(Tone::Third).zhuyin(), "ㄇㄟˇ");
+        assert_eq!(p("ye").with_tone(Tone::Third).zhuyin(), "ㄧㄝˇ");
+    }
+
+    #[test]
+    fn rhymes_follow_zhuyin() {
+        // the same rhyme symbol, different medials
+        assert_eq!(p("jin").rhyme_zhuyin(), "ㄣ");
+        assert_eq!(p("dun").rhyme_zhuyin(), "ㄣ");
+        assert_eq!(p("men").rhyme_zhuyin(), "ㄣ");
+        assert_eq!(p("dong").rhyme_zhuyin(), "ㄥ");
+        assert_eq!(p("xiong").rhyme_zhuyin(), "ㄥ");
+        // e, ei and ê are three different sounds
+        assert_eq!(p("me").nucleus, Some(Vowel::E));
+        assert_eq!(p("mei").nucleus, Some(Vowel::Ehat));
+        assert_eq!(p("ye").nucleus, Some(Vowel::Ehat));
+        assert_ne!(p("me").rhyme_zhuyin(), p("mei").rhyme_zhuyin());
     }
 }

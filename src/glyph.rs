@@ -1,6 +1,9 @@
 //! Stroke shapes for every component and the block layout that assembles
 //! them into one square glyph per syllable.
 //!
+//! A block has at most four parts: tone, initial, medial and rhyme. A rhyme
+//! (韵) is one symbol: its vowel plus at most one ending stroke.
+//!
 //! All geometry lives in a 100 × 100 em box. Components are drawn as
 //! centre-line strokes (round caps/joins, constant width, like a 圆体 /
 //! rounded-Hei typeface) in a unit box, then mapped into the rectangle the
@@ -9,7 +12,7 @@
 //! just as 土 keeps its weight whether it is the full character or the
 //! bottom of 坐.
 
-use crate::phonology::{Coda, Consonant, Manner, Place, Syllable, Tone, Vowel};
+use crate::phonology::{Coda, Consonant, Manner, Place, Syllable, Tone, Vowel, R_IDEA, R_STROKE};
 use std::fmt::Write;
 
 /// Stroke width for components.
@@ -172,13 +175,13 @@ fn mark(manner: Manner) -> Option<(Strokes, f32, f32)> {
 }
 
 // ---------------------------------------------------------------------------
-// Vowels: one or two strokes; a dot (丶) marks the front vowels ê and ü
+// Vowels: one or two strokes each
 // ---------------------------------------------------------------------------
 
-/// 八 a
+/// 八 a: two strokes held well apart (人 ê is the same pair, closed at the top)
 const BA: Strokes = &[
-    &[M(0.4, 0.04), Q(0.38, 0.62, 0.02, 0.96)],
-    &[M(0.6, 0.1), Q(0.66, 0.62, 0.98, 0.94)],
+    &[M(0.34, 0.04), Q(0.32, 0.62, 0.02, 0.96)],
+    &[M(0.66, 0.08), Q(0.7, 0.62, 0.98, 0.94)],
 ];
 
 /// 又 o
@@ -193,11 +196,10 @@ const LE: Strokes = &[
     &[M(0.52, 0.34), L(0.52, 1.0), L(0.32, 0.88)],
 ];
 
-/// 了 + 丶 ê
-const LE_DOT: Strokes = &[
-    &[M(0.1, 0.04), L(0.86, 0.04), L(0.52, 0.34)],
-    &[M(0.52, 0.34), L(0.52, 1.0), L(0.32, 0.88)],
-    &[M(0.76, 0.46), L(0.92, 0.66)],
+/// 人 ê: the front mid vowel (ie, üe, and the start of ei)
+const REN: Strokes = &[
+    &[M(0.54, 0.02), Q(0.48, 0.6, 0.02, 0.96)],
+    &[M(0.51, 0.3), Q(0.66, 0.8, 0.98, 0.96)],
 ];
 
 /// 乙 i
@@ -228,10 +230,44 @@ fn vowel_strokes(v: Vowel) -> Strokes {
         Vowel::A => BA,
         Vowel::O => YOU,
         Vowel::E => LE,
-        Vowel::Ehat => LE_DOT,
+        Vowel::Ehat => REN,
         Vowel::I => YI,
         Vowel::U => WU,
         Vowel::Yu => YU,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Ending strokes: what turns a vowel into a rhyme (a → ai ao an ang, o → ou …)
+// Each is exactly one stroke, written along the foot of the vowel.
+// ---------------------------------------------------------------------------
+
+/// -i: 提, a rising stroke, the tongue rising toward i
+const END_I: Strokes = &[&[M(0.2, 0.94), L(0.8, 0.06)]];
+/// -u: 卧钩, a bowl, the lips rounding toward u
+const END_U: Strokes = &[&[M(0.03, 0.08), Q(0.3, 1.0, 0.8, 0.9), L(0.97, 0.36)]];
+/// -n: 横, a level bar, the tongue tip sealing the mouth
+const END_N: Strokes = &[&[M(0.02, 0.5), L(0.98, 0.5)]];
+/// -ng: 横折钩, the same bar closed at the back
+const END_NG: Strokes = &[&[M(0.02, 0.08), L(0.96, 0.08), L(0.96, 0.94), L(0.8, 0.8)]];
+/// -r: 竖弯钩, the retroflex curl (儿化, er)
+const END_R: Strokes = &[&[
+    M(0.04, 0.0),
+    L(0.04, 0.5),
+    Q(0.04, 0.94, 0.3, 0.94),
+    L(0.86, 0.94),
+    L(0.97, 0.58),
+]];
+
+/// (strokes, min aspect, max aspect); `None` is the r ending.
+fn ending(c: Option<Coda>) -> (Strokes, f32, f32) {
+    match c {
+        Some(Coda::I) => (END_I, 0.9, 1.8),
+        Some(Coda::U) => (END_U, 1.8, 3.4),
+        Some(Coda::N) => (END_N, 2.0, 99.0),
+        Some(Coda::Ng) => (END_NG, 1.8, 3.4),
+        Some(Coda::M) => (END_N, 2.0, 99.0),
+        None => (END_R, 1.6, 3.2),
     }
 }
 
@@ -263,9 +299,7 @@ pub enum Role {
     Tone,
     Initial,
     Medial,
-    Nucleus,
-    Coda,
-    Rhotic,
+    Rhyme,
 }
 
 impl Role {
@@ -274,9 +308,7 @@ impl Role {
             Role::Tone => "r-tone",
             Role::Initial => "r-initial",
             Role::Medial => "r-medial",
-            Role::Nucleus => "r-nucleus",
-            Role::Coda => "r-coda",
-            Role::Rhotic => "r-rhotic",
+            Role::Rhyme => "r-rhyme",
         }
     }
 
@@ -285,9 +317,7 @@ impl Role {
             Role::Tone => "Tone",
             Role::Initial => "Initial",
             Role::Medial => "Medial",
-            Role::Nucleus => "Vowel",
-            Role::Coda => "Coda",
-            Role::Rhotic => "儿化",
+            Role::Rhyme => "Rhyme",
         }
     }
 }
@@ -303,12 +333,15 @@ pub struct Layer {
 mod aspect {
     pub const INITIAL_SIDE: (f32, f32) = (0.4, 0.86);
     pub const INITIAL_ALONE: (f32, f32) = (0.66, 0.92);
-    pub const NUCLEUS_STACKED: (f32, f32) = (0.7, 1.7);
-    pub const NUCLEUS_SIDE: (f32, f32) = (0.55, 1.0);
-    pub const NUCLEUS_ALONE: (f32, f32) = (0.72, 1.06);
     pub const GLIDE: (f32, f32) = (1.6, 3.4);
-    pub const FRAME_CODA: (f32, f32) = (1.5, 3.0);
-    pub const SPLIT: (f32, f32) = (0.7, 1.6);
+    /// a rhyme under a medial
+    pub const RHYME_STACKED: (f32, f32) = (0.7, 1.7);
+    /// a rhyme beside an initial, no medial
+    pub const RHYME_SIDE: (f32, f32) = (0.5, 1.0);
+    /// a rhyme filling the block
+    pub const RHYME_ALONE: (f32, f32) = (0.7, 1.06);
+    /// the vowel inside a rhyme that has an ending
+    pub const RHYME_VOWEL: (f32, f32) = (0.6, 2.2);
 }
 
 /// Draw a consonant (frame + manner mark) into `r`, honouring `asp`.
@@ -330,24 +363,52 @@ fn vowel_path(v: Vowel, r: Rect, asp: (f32, f32)) -> String {
     out
 }
 
-/// 儿化 / er: the bare retroflex frame 乚 in the coda slot.
-fn rhotic_path(r: Rect, asp: (f32, f32)) -> String {
-    consonant_path(Consonant::new(Place::Retroflex, Manner::Plain), r, asp)
-}
-
-/// A nasal coda is the bare frame of its place: only n, ng (and m in
-/// interjections) can close a syllable, so the nasal mark is not needed.
-fn coda_frame(c: Consonant) -> Consonant {
-    Consonant::new(c.place, Manner::Plain)
-}
-
-/// How flat a glide may be drawn: crossed strokes (乂, 义) stop reading as a
+/// How flat a medial may be drawn: crossed strokes (乂, 义) stop reading as a
 /// cross when squashed too far, 乙 survives more.
 fn glide_aspect(v: Vowel) -> (f32, f32) {
     match v {
         Vowel::I => aspect::GLIDE,
         _ => (aspect::GLIDE.0, 2.3),
     }
+}
+
+/// Draw endings (coda and/or r) side by side into a flat band.
+fn endings_path(endings: &[Option<Coda>], band: Rect, out: &mut String) {
+    let gap = 5.0;
+    let n = endings.len() as f32;
+    let w = (band.w - gap * (n - 1.0)) / n;
+    for (k, e) in endings.iter().enumerate() {
+        let (strokes, lo, hi) = ending(*e);
+        let r = Rect::new(band.x + k as f32 * (w + gap), band.y, w, band.h);
+        emit(strokes, r.fit(lo, hi).inset(SW / 2.0), out);
+    }
+}
+
+/// One rhyme symbol: the vowel, with its ending stroke tucked under it.
+fn rhyme_path(nucleus: Vowel, coda: Option<Coda>, rhotic: bool, r: Rect, asp: (f32, f32)) -> String {
+    let mut out = String::new();
+    let r = r.fit(asp.0, asp.1);
+    let mut endings = Vec::new();
+    if coda.is_some() {
+        endings.push(coda);
+    }
+    if rhotic {
+        endings.push(None);
+    }
+    if endings.is_empty() {
+        emit(vowel_strokes(nucleus), r.inset(SW / 2.0), &mut out);
+        return out;
+    }
+    // The ending sits close under the vowel (closer than any gap between
+    // parts), so vowel + ending read as one symbol.
+    let band_h = r.h * 0.3;
+    let gap = r.h * 0.03;
+    let top = Rect::new(r.x, r.y, r.w, r.h - band_h - gap);
+    let vowel = top.fit(aspect::RHYME_VOWEL.0, aspect::RHYME_VOWEL.1);
+    emit(vowel_strokes(nucleus), vowel.inset(SW / 2.0), &mut out);
+    let band = Rect::new(vowel.x, r.y + r.h - band_h, vowel.w, band_h);
+    endings_path(&endings, band, &mut out);
+    out
 }
 
 fn layer(role: Role, d: String) -> Layer {
@@ -366,19 +427,20 @@ pub fn syllable_layers(s: &Syllable) -> Vec<Layer> {
     let has_final = s.nucleus.is_some() || s.coda.is_some() || s.medial.is_some();
     match (s.initial, has_final) {
         (Some(c), true) => {
-            // ⿰: initial on the left like a radical, the final stacked on the right
+            // initial on the left like a radical, the final on the right
             let left = Rect::new(4.0, BODY_TOP, 33.0, BODY_H);
             layers.push(layer(Role::Initial, consonant_path(c, left, aspect::INITIAL_SIDE)));
             let right = Rect::new(43.0, BODY_TOP, 53.0, BODY_H);
             final_layers(s, right, true, &mut layers);
         }
         (Some(c), false) => {
-            // zhi chi shi ri zi ci si (and 儿化 on them): the initial alone
+            // zhi chi shi ri zi ci si: the initial alone (plus the r curl for 儿化)
             if s.rhotic {
-                let top = Rect::new(14.0, BODY_TOP, 72.0, 50.0);
+                let top = Rect::new(14.0, BODY_TOP, 72.0, 52.0);
                 layers.push(layer(Role::Initial, consonant_path(c, top, (0.9, 1.6))));
-                let bottom = Rect::new(14.0, BODY_TOP + 55.0, 72.0, 21.0);
-                layers.push(layer(Role::Rhotic, rhotic_path(bottom, aspect::FRAME_CODA)));
+                let mut d = String::new();
+                endings_path(&[None], Rect::new(26.0, BODY_TOP + 57.0, 48.0, 19.0), &mut d);
+                layers.push(layer(Role::Rhyme, d));
             } else {
                 let body = Rect::new(12.0, BODY_TOP + 1.0, 76.0, BODY_H - 2.0);
                 layers.push(layer(Role::Initial, consonant_path(c, body, aspect::INITIAL_ALONE)));
@@ -393,85 +455,35 @@ pub fn syllable_layers(s: &Syllable) -> Vec<Layer> {
     layers
 }
 
-enum FPart {
-    Medial(Vowel),
-    Nucleus(Vowel),
-    Coda,
-}
-
-/// ⿱ stack: medial on top (flattened), vowel in the middle, coda at the bottom.
+/// The final: an optional flattened medial on top, then one rhyme symbol.
 fn final_layers(s: &Syllable, rect: Rect, beside_initial: bool, layers: &mut Vec<Layer>) {
-    let mut parts = Vec::new();
-    if let Some(m) = s.medial {
-        parts.push((FPart::Medial(m), if m == Vowel::Yu { 0.42 } else { 0.34 }));
-    }
-    if let Some(n) = s.nucleus {
-        parts.push((FPart::Nucleus(n), 0.62));
-    }
-    if s.coda.is_some() || s.rhotic {
-        let w = if s.coda.is_some() && s.rhotic { 0.4 } else { 0.32 };
-        parts.push((FPart::Coda, w));
-    }
-    let gap = 5.5;
-    let n = parts.len() as f32;
-    let total: f32 = parts.iter().map(|p| p.1).sum();
-    let avail = rect.h - gap * (n - 1.0);
-    let mut y = rect.y;
-    let alone = parts.len() == 1;
-    for (part, weight) in parts {
-        let h = if alone { rect.h } else { avail * weight / total };
-        let r = Rect::new(rect.x, y, rect.w, h);
-        y += h + gap;
-        match part {
-            FPart::Medial(v) => layers.push(layer(Role::Medial, vowel_path(v, r, glide_aspect(v)))),
-            FPart::Nucleus(v) => {
-                let asp = if !alone {
-                    aspect::NUCLEUS_STACKED
-                } else if beside_initial {
-                    aspect::NUCLEUS_SIDE
-                } else {
-                    aspect::NUCLEUS_ALONE
-                };
-                layers.push(layer(Role::Nucleus, vowel_path(v, r, asp)));
-            }
-            FPart::Coda => coda_layers(s, r, alone, layers),
+    let Some(nucleus) = s.nucleus else {
+        // syllabic nasal (m, n, ng, hm, hng): the full nasal consonant
+        if let Some(k) = s.coda.and_then(|c| c.consonant()) {
+            let asp = if beside_initial { aspect::INITIAL_SIDE } else { aspect::INITIAL_ALONE };
+            layers.push(layer(Role::Rhyme, consonant_path(k, rect, asp)));
         }
-    }
-}
-
-fn coda_layers(s: &Syllable, r: Rect, alone: bool, layers: &mut Vec<Layer>) {
-    // With no vowel (m, n, ng, hm, hng) the nasal is syllabic and keeps its
-    // nasal mark; after a vowel it is reduced to the bare frame.
-    let syllabic = s.nucleus.is_none();
-    let draw_coda = |c: Coda, r: Rect, asp: (f32, f32)| -> String {
-        match (c.vowel(), c.consonant()) {
-            (Some(v), _) => vowel_path(v, r, asp),
-            (_, Some(k)) if syllabic => consonant_path(k, r, asp),
-            (_, Some(k)) => consonant_path(coda_frame(k), r, asp),
-            _ => String::new(),
-        }
+        return;
     };
-    let coda_asp = |c: Coda| {
-        if alone {
-            aspect::INITIAL_ALONE
-        } else if let Some(v) = c.vowel() {
-            glide_aspect(v)
-        } else {
-            aspect::FRAME_CODA
+    let has_ending = s.coda.is_some() || s.rhotic;
+    match s.medial {
+        Some(m) => {
+            let mw = if m == Vowel::Yu { 0.42 } else { 0.34 };
+            let rw = if has_ending { 0.95 } else { 0.62 };
+            let gap = 6.0;
+            let avail = rect.h - gap;
+            let mh = avail * mw / (mw + rw);
+            let mr = Rect::new(rect.x, rect.y, rect.w, mh);
+            layers.push(layer(Role::Medial, vowel_path(m, mr, glide_aspect(m))));
+            let rr = Rect::new(rect.x, rect.y + mh + gap, rect.w, avail - mh);
+            let d = rhyme_path(nucleus, s.coda, s.rhotic, rr, aspect::RHYME_STACKED);
+            layers.push(layer(Role::Rhyme, d));
         }
-    };
-    match (s.coda, s.rhotic) {
-        (Some(c), true) => {
-            // both: side by side, coda first
-            let w = (r.w - 5.0) / 2.0;
-            let left = Rect::new(r.x, r.y, w, r.h);
-            let right = Rect::new(r.x + w + 5.0, r.y, w, r.h);
-            layers.push(layer(Role::Coda, draw_coda(c, left, aspect::SPLIT)));
-            layers.push(layer(Role::Rhotic, rhotic_path(right, aspect::SPLIT)));
+        None => {
+            let asp = if beside_initial { aspect::RHYME_SIDE } else { aspect::RHYME_ALONE };
+            let d = rhyme_path(nucleus, s.coda, s.rhotic, rect, asp);
+            layers.push(layer(Role::Rhyme, d));
         }
-        (Some(c), false) => layers.push(layer(Role::Coda, draw_coda(c, r, coda_asp(c)))),
-        (None, true) => layers.push(layer(Role::Rhotic, rhotic_path(r, aspect::FRAME_CODA))),
-        (None, false) => {}
     }
 }
 
@@ -482,12 +494,14 @@ fn coda_layers(s: &Syllable, r: Rect, alone: bool, layers: &mut Vec<Layer>) {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Part {
     Consonant(Consonant),
+    /// a vowel on its own, full size
     Vowel(Vowel),
-    /// flattened glide form (medial / coda) of i, u, ü
+    /// flattened medial form of i, u, ü
     Glide(Vowel),
-    /// a coda as written after a vowel (bare frame or flattened vowel)
-    Coda(Coda),
-    Rhotic,
+    /// a whole rhyme symbol: vowel + ending (+ r)
+    Rhyme(Vowel, Option<Coda>, bool),
+    /// one ending stroke on its own; `None` is the r curl
+    Ending(Option<Coda>),
     Tone(Tone),
 }
 
@@ -498,26 +512,22 @@ pub fn part_layers(p: Part) -> Vec<Layer> {
             consonant_path(c, Rect::new(16.0, 12.0, 68.0, 76.0), aspect::INITIAL_ALONE),
         )],
         Part::Vowel(v) => vec![layer(
-            Role::Nucleus,
-            vowel_path(v, Rect::new(12.0, 12.0, 76.0, 76.0), aspect::NUCLEUS_ALONE),
+            Role::Rhyme,
+            vowel_path(v, Rect::new(12.0, 12.0, 76.0, 76.0), aspect::RHYME_ALONE),
         )],
         Part::Glide(v) => vec![layer(
             Role::Medial,
             vowel_path(v, Rect::new(8.0, 34.0, 84.0, 32.0), glide_aspect(v)),
         )],
-        Part::Coda(c) => {
-            let r = Rect::new(8.0, 30.0, 84.0, 40.0);
-            let d = match (c.vowel(), c.consonant()) {
-                (Some(v), _) => vowel_path(v, r, glide_aspect(v)),
-                (_, Some(k)) => consonant_path(coda_frame(k), r, aspect::FRAME_CODA),
-                _ => String::new(),
-            };
-            vec![layer(Role::Coda, d)]
-        }
-        Part::Rhotic => vec![layer(
-            Role::Rhotic,
-            rhotic_path(Rect::new(10.0, 30.0, 80.0, 40.0), aspect::FRAME_CODA),
+        Part::Rhyme(v, c, r) => vec![layer(
+            Role::Rhyme,
+            rhyme_path(v, c, r, Rect::new(12.0, 12.0, 76.0, 76.0), aspect::RHYME_ALONE),
         )],
+        Part::Ending(e) => {
+            let mut d = String::new();
+            endings_path(&[e], Rect::new(14.0, 32.0, 72.0, 36.0), &mut d);
+            vec![layer(Role::Rhyme, d)]
+        }
         Part::Tone(t) => tone_path(t)
             .map(|d| {
                 // scale the mark up so it reads on its own
@@ -583,16 +593,19 @@ pub struct PartInfo {
     pub note: String,
 }
 
-pub fn describe(s: &Syllable) -> Vec<PartInfo> {
-    let mut v = Vec::new();
-    let consonant_component = |c: Consonant| match c.manner {
+fn consonant_component(c: Consonant) -> String {
+    match c.manner {
         Manner::Plain => c.place.frame().to_string(),
         m => format!("{} + {}", c.place.frame(), m.mark()),
-    };
+    }
+}
+
+pub fn describe(s: &Syllable) -> Vec<PartInfo> {
+    let mut v = Vec::new();
     if let Some(c) = s.initial {
         v.push(PartInfo {
             role: Role::Initial,
-            sound: c.pinyin().to_string(),
+            sound: format!("{} {}", c.zhuyin(), c.pinyin()),
             component: consonant_component(c),
             note: format!("{} frame, {} mark", c.place.name(), c.manner.name().to_lowercase()),
         });
@@ -600,48 +613,46 @@ pub fn describe(s: &Syllable) -> Vec<PartInfo> {
     if let Some(m) = s.medial {
         v.push(PartInfo {
             role: Role::Medial,
-            sound: m.pinyin().to_string(),
+            sound: format!("{} {}", m.zhuyin(), m.pinyin()),
             component: format!("{} (flattened)", m.component()),
-            note: "glide into the vowel, written on top".into(),
+            note: "glide into the rhyme, written on top".into(),
         });
     }
     match s.nucleus {
-        Some(n) => v.push(PartInfo {
-            role: Role::Nucleus,
-            sound: n.pinyin().to_string(),
-            component: n.component().to_string(),
-            note: "main vowel".into(),
-        }),
-        None if s.initial.is_some() && s.coda.is_none() => v.push(PartInfo {
-            role: Role::Nucleus,
-            sound: "-i".into(),
-            component: "(none)".into(),
-            note: "buzzing 'empty' vowel: the initial is written alone".into(),
-        }),
-        None => {}
-    }
-    if let Some(c) = s.coda {
-        let (component, note) = match (c.vowel(), c.consonant()) {
-            (Some(v), _) => (format!("{} (flattened)", v.component()), "glide out of the vowel"),
-            (_, Some(k)) if s.nucleus.is_none() => {
-                (consonant_component(k), "syllabic nasal: the full consonant")
+        Some(n) => {
+            let mut component = n.component().to_string();
+            let mut notes = Vec::new();
+            if let Some(c) = s.coda {
+                component.push_str(&format!(" + {}", c.stroke()));
+                notes.push(c.idea());
             }
-            (_, Some(k)) => (
-                k.place.frame().to_string(),
-                "bare frame: after a vowel only a nasal can follow, so no mark is needed",
-            ),
-            _ => (String::new(), ""),
-        };
-        let sound = if c == Coda::U && s.nucleus == Some(Vowel::A) { "o (u)" } else { c.pinyin() };
-        v.push(PartInfo { role: Role::Coda, sound: sound.into(), component, note: note.into() });
-    }
-    if s.rhotic {
-        v.push(PartInfo {
-            role: Role::Rhotic,
-            sound: "r".into(),
-            component: "乚".into(),
-            note: "bare retroflex frame: r-colouring (儿化 / er)".into(),
-        });
+            if s.rhotic {
+                component.push_str(&format!(" + {R_STROKE}"));
+                notes.push(R_IDEA);
+            }
+            let note = if notes.is_empty() {
+                format!("the vowel {} on its own", n.pinyin())
+            } else {
+                format!("one symbol: {} plus {}", n.pinyin(), notes.join("; "))
+            };
+            let sound = format!("{} {}", s.rhyme_zhuyin(), s.rhyme_name());
+            v.push(PartInfo { role: Role::Rhyme, sound, component, note });
+        }
+        None => match s.coda.and_then(|c| c.consonant()) {
+            Some(k) => v.push(PartInfo {
+                role: Role::Rhyme,
+                sound: k.pinyin().to_string(),
+                component: consonant_component(k),
+                note: "syllabic nasal: the full consonant".into(),
+            }),
+            None if s.initial.is_some() => v.push(PartInfo {
+                role: Role::Rhyme,
+                sound: if s.rhotic { "-ir".into() } else { "-i".into() },
+                component: if s.rhotic { R_STROKE.into() } else { "(none)".into() },
+                note: "buzzing 'empty' vowel: the initial is written alone".into(),
+            }),
+            None => {}
+        },
     }
     v.push(PartInfo {
         role: Role::Tone,
@@ -660,7 +671,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_finals_renders() {
+    fn every_final_renders() {
         for (key, ..) in crate::phonology::FINALS {
             let s = Syllable::from_pinyin(&format!("d{key}")).or_else(|| Syllable::from_pinyin(key));
             if let Some(s) = s {
@@ -671,6 +682,13 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_final_has_at_most_medial_and_rhyme() {
+        let s = Syllable::from_pinyin("zhuang").unwrap();
+        let roles: Vec<Role> = syllable_layers(&s).iter().map(|l| l.role).collect();
+        assert_eq!(roles, [Role::Initial, Role::Medial, Role::Rhyme]);
     }
 
     #[test]

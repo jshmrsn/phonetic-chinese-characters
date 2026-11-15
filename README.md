@@ -37,7 +37,7 @@ cargo run --example sheet --no-default-features -- sheet.html "zhuāng xiǎng|y�
 
 | file | what |
 |------|------|
-| `src/phonology.rs` | syllable model (initial × medial × vowel × coda × tone), pinyin and zhuyin spelling |
+| `src/phonology.rs` | syllable model in zhuyin terms (initial, medial, rhyme, tone), pinyin and zhuyin spelling |
 | `src/parse.rs` | input parsing: hanzi (via the `pinyin` crate + phrase table), pinyin segmentation, zhuyin, tone sandhi |
 | `src/glyph.rs` | stroke definitions for every component and the block layout |
 | `src/main.rs` | Dioxus UI: input, rendered output, inspector, reference key |

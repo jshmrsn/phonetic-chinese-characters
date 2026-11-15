@@ -264,9 +264,31 @@ textarea:focus {
 .cap {
   font-size: 12px;
   color: var(--muted);
-  line-height: 1.1;
+  line-height: 1.15;
   margin-top: 1px;
   letter-spacing: 0.01em;
+}
+
+.cap.zhuyin {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--ink) 70%, var(--muted));
+}
+
+.caption-select {
+  font: inherit;
+  font-size: 13px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.caption-select:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .text {
@@ -304,7 +326,8 @@ textarea:focus {
   stroke: var(--c-medial);
 }
 
-.colorize .glyph .r-nucleus {
+.colorize .glyph .r-nucleus,
+.colorize .glyph .r-rhyme {
   stroke: var(--c-nucleus);
 }
 
@@ -400,7 +423,8 @@ textarea:focus {
 
 .swatch.r-initial { background: var(--c-initial); }
 .swatch.r-medial { background: var(--c-medial); }
-.swatch.r-nucleus { background: var(--c-nucleus); }
+.swatch.r-nucleus,
+.swatch.r-rhyme { background: var(--c-nucleus); }
 .swatch.r-coda { background: var(--c-coda); }
 .swatch.r-tone { background: var(--c-tone); }
 .swatch.r-rhotic { background: var(--c-rhotic); }
@@ -479,7 +503,8 @@ textarea:focus {
 .slots .r-tone { color: var(--c-tone); }
 .slots .r-initial { color: var(--c-initial); }
 .slots .r-medial { color: var(--c-medial); }
-.slots .r-nucleus { color: var(--c-nucleus); }
+.slots .r-nucleus,
+.slots .r-rhyme { color: var(--c-nucleus); }
 .slots .r-coda { color: var(--c-coda); }
 
 .rules {
@@ -620,6 +645,25 @@ figure {
 .th-mark.big {
   font-size: 30px;
   line-height: 1.1;
+}
+
+.th-mark.small-mark {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.rhymes .row-head .th-mark.big {
+  color: var(--c-nucleus);
+}
+
+.end-glyph {
+  display: flex;
+  justify-content: center;
+}
+
+.final-name .zy {
+  font-size: 15px;
+  letter-spacing: 0.04em;
 }
 
 .th-idea {
