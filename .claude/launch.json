@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "yinkuai-web",
+      "runtimeExecutable": "dx",
+      "runtimeArgs": ["serve", "--web", "--port", "8080", "--open", "false"],
+      "port": 8080
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+[application]
+
+[web.app]
+title = "音块 Yīnkuài"
+
+[web.resource]
+style = []
+script = []
+
+[web.resource.dev]
+script = []

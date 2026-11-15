@@ -1,0 +1,24 @@
+[package]
+name = "yinkuai"
+version = "0.1.0"
+edition = "2021"
+description = "音块 Yīnkuài: a featural, syllable-block phonetic script for Mandarin Chinese"
+
+[dependencies]
+dioxus = { version = "0.7.10", features = [] }
+pinyin = { version = "0.11", default-features = false, features = ["with_tone"] }
+
+[features]
+default = ["web"]
+web = ["dioxus/web"]
+desktop = ["dioxus/desktop"]
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"
