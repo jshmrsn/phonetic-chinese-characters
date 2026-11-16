@@ -20,7 +20,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --paper: #15130f;
     --panel: #1d1a15;
     --ink: #ece5d6;
@@ -37,6 +37,24 @@
     --shadow: none;
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --paper: #15130f;
+  --panel: #1d1a15;
+  --ink: #ece5d6;
+  --muted: #9b9184;
+  --line: #322d25;
+  --accent: #e0644f;
+  --sandhi: #ff9d3b;
+  --c-initial: #ef6a55;
+  --c-medial: #43c2ad;
+  --c-nucleus: #7f9cf0;
+  --c-coda: #e2a547;
+  --c-tone: #bf8cf0;
+  --c-rhotic: #ea7fb8;
+  --shadow: none;
+  color-scheme: dark;
 }
 
 * {
@@ -600,6 +618,13 @@ textarea:focus {
 
 .output {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  row-gap: 10px;
+}
+
+.word {
+  display: inline-flex;
   flex-wrap: wrap;
   align-items: flex-start;
   row-gap: 10px;

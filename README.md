@@ -36,4 +36,5 @@ cargo test --no-default-features
 
 Design notes are in [DESIGN.md](DESIGN.md). Hanzi readings come from the
 `pinyin` crate. Stroke counts and reading frequencies come from the Unicode
-Unihan database (`data/`, Unicode License v3).
+Unihan database (Unicode License v3), and word boundaries are guessed with
+jieba's word-frequency dictionary (MIT). Both are in `data/`.

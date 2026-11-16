@@ -4,6 +4,7 @@ mod keyboard;
 mod glyph;
 mod parse;
 mod phonology;
+mod segment;
 
 use brush::Brush;
 use dioxus::prelude::*;
@@ -19,6 +20,10 @@ fn main() {
 
 const EXAMPLES: &[(&str, &str)] = &[
     ("Mixed", "你好，世界！\nnǐ hǎo, shìjiè!\nㄋㄧˇ ㄏㄠˇ，ㄕˋ ㄐㄧㄝˋ！"),
+    (
+        "新闻",
+        "本市新建的中央图书馆今天上午正式向市民开放。图书馆共有五层，藏书超过八十万册，还设有儿童阅读区、自习室和咖啡厅。开馆第一天，不少家长带着孩子早早来到门口排队，现场气氛十分热闹。\n馆长在接受记者采访时表示，希望图书馆能成为大家安静学习、交流想法的地方。今后，馆里还将定期举办讲座和展览，周末的开放时间也会延长到晚上九点。",
+    ),
     ("静夜思", "床前明月光，疑是地上霜。\n举头望明月，低头思故乡。"),
     ("Pinyin", "Wǒ xiǎng hē yì bēi chá. Zhōngguó de chá hěn yǒumíng."),
     ("Tone numbers", "wo3 xiang3 qu4 Bei3jing1 xue2 zhong1wen2"),
@@ -69,6 +74,14 @@ fn syl(p: &str) -> Syllable {
         .unwrap_or_else(Syllable::empty)
 }
 
+/// Colour theme: follow the system, or force day or night.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Theme {
+    Auto,
+    Day,
+    Night,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Tab {
     Text,
@@ -82,12 +95,26 @@ fn App() -> Element {
     let captions = use_signal(|| Captions::Zhuyin);
     let colorize = use_signal(|| false);
     let sandhi = use_signal(|| false);
+    let word_spaces = use_signal(|| true);
+    let theme = use_signal(|| Theme::Auto);
+    // the stylesheet keys its colours off <html data-theme>
+    use_effect(move || {
+        let value = match theme() {
+            Theme::Auto => "",
+            Theme::Day => "light",
+            Theme::Night => "dark",
+        };
+        document::eval(&format!(
+            "const r = document.documentElement; if ('{value}') {{ r.dataset.theme = '{value}'; }} else {{ delete r.dataset.theme; }}"
+        ));
+    });
     let mut selected = use_signal(|| None::<usize>);
     use_context_provider(|| Signal::new(Brush::PEN));
     let mut tab = use_signal(|| Tab::Text);
 
     let items = use_memo(move || {
-        let mut items = parse::convert(&input.read());
+        let opts = parse::Options { word_spaces: word_spaces() };
+        let mut items = parse::convert_with(&input.read(), opts);
         if sandhi() {
             parse::apply_sandhi(&mut items);
         }
@@ -99,6 +126,28 @@ fn App() -> Element {
         _ => None,
     });
     let syllable_count = items.read().iter().filter(|i| matches!(i, Item::Syl(_))).count();
+    let wide = parse::wide_spaces(&items.read().iter().map(Item::flow).collect::<Vec<_>>());
+    // group each word with the spaces after it, so lines break between words
+    // and never start with a gap; a line break is a group of its own
+    let groups: Vec<Vec<usize>> = {
+        let mut groups: Vec<Vec<usize>> = Vec::new();
+        let mut prev_space = false;
+        for (i, item) in items.read().iter().enumerate() {
+            let space = matches!(item, Item::Space { .. });
+            let newline = matches!(item, Item::Newline);
+            let start_new = newline
+                || groups.is_empty()
+                || matches!(items.read()[groups.last().unwrap()[0]], Item::Newline)
+                || (prev_space && !space);
+            if start_new {
+                groups.push(vec![i]);
+            } else {
+                groups.last_mut().unwrap().push(i);
+            }
+            prev_space = space;
+        }
+        groups
+    };
     let pane = |t: Tab| if tab() == t { "tab-pane" } else { "tab-pane inactive" };
 
     rsx! {
@@ -133,7 +182,7 @@ fn App() -> Element {
                 }
             }
 
-            DisplayBar { size, captions, colorize, sandhi }
+            DisplayBar { size, captions, colorize, sandhi, word_spaces, theme }
 
             // both tabs stay mounted, so switching never loses what was typed
             div { class: pane(Tab::Text),
@@ -169,15 +218,24 @@ fn App() -> Element {
                             span { class: "muted", "{syllable_count} syllables" }
                         }
                         div { class: "output",
-                            for (i , item) in items.read().iter().enumerate() {
-                                ItemView {
-                                    key: "{i}",
-                                    item: item.clone(),
-                                    index: i,
-                                    size: size(),
-                                    captions: captions(),
-                                    selected: selected() == Some(i),
-                                    on_select: move |i| selected.set(Some(i)),
+                            for group in groups {
+                                if group.len() == 1 && matches!(items.read()[group[0]], Item::Newline) {
+                                    div { class: "break" }
+                                } else {
+                                    span { class: "word",
+                                        for i in group {
+                                            ItemView {
+                                                key: "{i}",
+                                                item: items.read()[i].clone(),
+                                                index: i,
+                                                wide: wide[i],
+                                                size: size(),
+                                                captions: captions(),
+                                                selected: selected() == Some(i),
+                                                on_select: move |i| selected.set(Some(i)),
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -215,6 +273,8 @@ fn DisplayBar(
     mut captions: Signal<Captions>,
     mut colorize: Signal<bool>,
     mut sandhi: Signal<bool>,
+    mut word_spaces: Signal<bool>,
+    mut theme: Signal<Theme>,
 ) -> Element {
     let mut brush = use_context::<Signal<Brush>>();
     let mut hand = use_signal(|| 0.5f32);
@@ -247,6 +307,15 @@ fn DisplayBar(
                     }
                     "Tone sandhi"
                 }
+                label { class: "toggle",
+                    title: "In the Text tab, put a space between the words of Chinese text (best guess from a word-frequency dictionary)",
+                    input {
+                        r#type: "checkbox",
+                        checked: word_spaces(),
+                        onchange: move |e| word_spaces.set(e.checked()),
+                    }
+                    "Word spaces"
+                }
                 label { class: "toggle size",
                     "Size"
                     input {
@@ -255,6 +324,21 @@ fn DisplayBar(
                         max: "160",
                         value: "{size}",
                         oninput: move |e| size.set(e.value().parse().unwrap_or(84)),
+                    }
+                }
+                div { class: "segmented", role: "group", "aria-label": "Colour theme",
+                    for (t , label , hint) in [
+                        (Theme::Auto, "Auto", "follow the system setting"),
+                        (Theme::Day, "☀ Day", "light colours"),
+                        (Theme::Night, "☾ Night", "dark colours"),
+                    ]
+                    {
+                        button {
+                            class: if theme() == t { "seg active" } else { "seg" },
+                            title: "{hint}",
+                            onclick: move |_| theme.set(t),
+                            "{label}"
+                        }
                     }
                 }
                 span { class: "divider" }
@@ -468,6 +552,17 @@ impl Pad {
     }
 }
 
+impl Written {
+    fn flow(&self) -> parse::Flow {
+        match self {
+            Written::Syl(_) => parse::Flow::Block,
+            Written::Space => parse::Flow::Space { ideographic: false },
+            Written::Text(t) if t == "\u{3000}" => parse::Flow::Space { ideographic: true },
+            _ => parse::Flow::Other,
+        }
+    }
+}
+
 fn written_text(w: &[Written]) -> String {
     w.iter()
         .map(|w| match w {
@@ -518,6 +613,7 @@ fn PadView(pad: Pad, size: u32, captions: Captions, colorize: bool) -> Element {
     let composing = (!typed.is_empty()).then(|| keyboard::compose(&typed, (pad.rhotic)(), Tone::Neutral));
     let selected = (pad.selected)();
     let blocks = written.iter().filter(|w| matches!(w, Written::Syl(_))).count();
+    let wide = parse::wide_spaces(&written.iter().map(Written::flow).collect::<Vec<_>>());
     let mut cursor = pad.cursor;
     rsx! {
         section { class: if colorize { "panel output-panel pad-panel colorize" } else { "panel output-panel pad-panel" },
@@ -540,6 +636,7 @@ fn PadView(pad: Pad, size: u32, captions: Captions, colorize: bool) -> Element {
                         PadItem {
                             w: written[i].clone(),
                             index: i,
+                            wide: wide[i],
                             size,
                             captions,
                             selected: selected == Some(i),
@@ -553,7 +650,16 @@ fn PadView(pad: Pad, size: u32, captions: Captions, colorize: bool) -> Element {
 }
 
 #[component]
-fn PadItem(w: Written, index: usize, size: u32, captions: Captions, selected: bool, pad: Pad) -> Element {
+fn PadItem(
+    w: Written,
+    index: usize,
+    /// for spaces: draw one block wide
+    wide: bool,
+    size: u32,
+    captions: Captions,
+    selected: bool,
+    pad: Pad,
+) -> Element {
     let (mut cursor, mut sel) = (pad.cursor, pad.selected);
     let is_block = matches!(w, Written::Syl(_));
     let mut pick = move |e: MouseEvent, after: bool| {
@@ -586,7 +692,7 @@ fn PadItem(w: Written, index: usize, size: u32, captions: Captions, selected: bo
             }
         }
         Written::Space => {
-            let wpx = size / 4;
+            let wpx = if wide { size } else { size / 4 };
             rsx! {
                 span { class: "pad-space", style: "width: {wpx}px; height: {size}px;" }
             }
@@ -960,6 +1066,8 @@ fn PartGlyph(part: Part, size: u32) -> Element {
 fn ItemView(
     item: Item,
     index: usize,
+    /// for spaces: draw one block wide
+    wide: bool,
     size: u32,
     captions: Captions,
     selected: bool,
@@ -993,8 +1101,9 @@ fn ItemView(
                 span { class: "text", style: "height: {size}px; font-size: {fs}px;", "{t}" }
             }
         }
-        Item::Space => {
-            let w = size / 4;
+        Item::Space { .. } => {
+            // a block plus the cell's 1px side padding, or a narrow gap
+            let w = if wide { size + 2 } else { size / 4 };
             rsx! {
                 span { class: "space", style: "width: {w}px;" }
             }

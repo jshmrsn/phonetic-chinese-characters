@@ -247,7 +247,7 @@ impl Vowel {
             Vowel::Ehat => "人",
             Vowel::I => "乙",
             Vowel::U => "乂",
-            Vowel::Yu => "乂 + 丶",
+            Vowel::Yu => "于",
         }
     }
 
@@ -259,7 +259,7 @@ impl Vowel {
             Vowel::Ehat => "the front mid vowel of 也 yě, 谢 xiè and 美 měi: half-closed 八",
             Vowel::I => "乙 yǐ: one stroke",
             Vowel::U => "zhuyin's ㄨ: crossed strokes for pursed lips",
-            Vowel::Yu => "u with the tongue pushed forward (the dot), like pinyin's ü",
+            Vowel::Yu => "于 yú: a shape of its own, as zhuyin gives ü its own ㄩ",
         }
     }
 }

@@ -26,8 +26,51 @@ pub enum Item {
     Syl(SylItem),
     /// Punctuation or anything that is not Mandarin.
     Text(String),
-    Space,
+    /// One space character; `ideographic` for U+3000 (　).
+    Space { ideographic: bool },
     Newline,
+}
+
+impl Item {
+    pub fn flow(&self) -> Flow {
+        match self {
+            Item::Syl(_) => Flow::Block,
+            Item::Space { ideographic } => Flow::Space { ideographic: *ideographic },
+            _ => Flow::Other,
+        }
+    }
+}
+
+/// What a piece of rendered text is, for deciding how wide spaces are.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Flow {
+    Block,
+    Space { ideographic: bool },
+    Other,
+}
+
+/// Which spaces are drawn one block wide: every ideographic space (U+3000),
+/// and every ordinary space in a run whose neighbours on both sides are
+/// syllable blocks. Other spaces stay narrow.
+pub fn wide_spaces(flow: &[Flow]) -> Vec<bool> {
+    let n = flow.len();
+    let mut out = vec![false; n];
+    let mut i = 0;
+    while i < n {
+        if !matches!(flow[i], Flow::Space { .. }) {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < n && matches!(flow[i], Flow::Space { .. }) {
+            i += 1;
+        }
+        let between_blocks = start > 0 && flow[start - 1] == Flow::Block && i < n && flow[i] == Flow::Block;
+        for (k, wide) in out.iter_mut().enumerate().take(i).skip(start) {
+            *wide = between_blocks || flow[k] == Flow::Space { ideographic: true };
+        }
+    }
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -84,7 +127,19 @@ fn toned_vowel(c: char) -> Option<(char, u8)> {
 // Top level
 // ---------------------------------------------------------------------------
 
+/// Conversion options.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Options {
+    /// Put a space between the words of hanzi text (best-guess segmentation).
+    pub word_spaces: bool,
+}
+
+#[cfg(test)]
 pub fn convert(input: &str) -> Vec<Item> {
+    convert_with(input, Options::default())
+}
+
+pub fn convert_with(input: &str, opts: Options) -> Vec<Item> {
     let chars: Vec<char> = input.chars().collect();
     let mut items = Vec::new();
     let mut i = 0;
@@ -94,8 +149,9 @@ pub fn convert(input: &str) -> Vec<Item> {
             items.push(Item::Newline);
             i += 1;
         } else if c.is_whitespace() {
-            if !matches!(items.last(), Some(Item::Space) | Some(Item::Newline) | None) {
-                items.push(Item::Space);
+            // every space is kept, so runs of spaces keep their width
+            if c != '\r' {
+                items.push(Item::Space { ideographic: c == '\u{3000}' });
             }
             i += 1;
         } else if is_hanzi(c) {
@@ -103,7 +159,7 @@ pub fn convert(input: &str) -> Vec<Item> {
             while i < chars.len() && is_hanzi(chars[i]) {
                 i += 1;
             }
-            hanzi_run(&chars[start..i], &mut items);
+            hanzi_run(&chars[start..i], &mut items, opts);
         } else if is_zhuyin(c) {
             let start = i;
             while i < chars.len() && is_zhuyin(chars[i]) {
@@ -566,7 +622,8 @@ const PHRASES: &[(&str, &str)] = &[
     ("舒服", "shu1 fu5"), ("告诉", "gao4 su5"), ("麻烦", "ma2 fan5"),
     ("清楚", "qing1 chu5"), ("大夫", "dai4 fu5"), ("了解", "liao3 jie3"),
     ("目的", "mu4 di4"), ("的确", "di2 que4"), ("中奖", "zhong4 jiang3"),
-    ("少年", "shao4 nian2"), ("妈妈", "ma1 ma5"), ("爸爸", "ba4 ba5"),
+    ("少年", "shao4 nian2"), ("馆长", "guan3 zhang3"), ("院长", "yuan4 zhang3"),
+    ("队长", "dui4 zhang3"), ("董事长", "dong3 shi4 zhang3"), ("延长", "yan2 chang2"), ("妈妈", "ma1 ma5"), ("爸爸", "ba4 ba5"),
     ("哥哥", "ge1 ge5"), ("姐姐", "jie3 jie5"), ("弟弟", "di4 di5"),
     ("妹妹", "mei4 mei5"), ("奶奶", "nai3 nai5"), ("爷爷", "ye2 ye5"),
     ("孩子", "hai2 zi5"), ("儿子", "er2 zi5"), ("桌子", "zhuo1 zi5"),
@@ -596,7 +653,21 @@ fn reading_syllable(reading: &str) -> Option<Syllable> {
     parse_pinyin_token(reading).and_then(|v| v.into_iter().next().map(|(s, _)| s))
 }
 
-fn hanzi_run(chars: &[char], items: &mut Vec<Item>) {
+/// A run of hanzi: cut it into words, read each word, and optionally put a
+/// space between words.
+fn hanzi_run(chars: &[char], items: &mut Vec<Item>, opts: Options) {
+    let mut start = 0;
+    for (k, len) in crate::segment::segment(chars).into_iter().enumerate() {
+        if opts.word_spaces && k > 0 {
+            items.push(Item::Space { ideographic: false });
+        }
+        hanzi_word(&chars[start..start + len], items);
+        start += len;
+    }
+}
+
+/// Read one word: known phrases first, then character by character.
+fn hanzi_word(chars: &[char], items: &mut Vec<Item>) {
     use pinyin::ToPinyin;
     let mut i = 0;
     while i < chars.len() {
@@ -669,7 +740,7 @@ pub fn apply_sandhi(items: &mut [Item]) {
     for (i, item) in items.iter().enumerate() {
         match item {
             Item::Syl(_) => runs.last_mut().unwrap().push(i),
-            Item::Space => {}
+            Item::Space { .. } => {}
             _ => runs.push(Vec::new()),
         }
     }
@@ -748,6 +819,40 @@ mod tests {
         assert_eq!(pinyin_of("huār"), ["huār"]);
         assert_eq!(pinyin_of("yìdiǎnr"), ["yì", "diǎnr"]);
         assert_eq!(pinyin_of("huàrán"), ["huà", "rán"]);
+    }
+
+    #[test]
+    fn spaces_between_blocks_are_block_wide() {
+        let wide = |input: &str| -> Vec<bool> {
+            let items = convert(input);
+            let flow: Vec<Flow> = items.iter().map(Item::flow).collect();
+            wide_spaces(&flow).into_iter().zip(&items).filter(|(_, i)| matches!(i, Item::Space { .. })).map(|(w, _)| w).collect()
+        };
+        assert_eq!(wide("你 好"), [true]);
+        assert_eq!(wide("nǐ  hǎo"), [true, true]);
+        // next to punctuation or other text a space stays narrow
+        assert_eq!(wide("你， 好"), [false]);
+        assert_eq!(wide("hello 你"), [false]);
+        // an ideographic space is always block wide
+        assert_eq!(wide("你　好"), [true]);
+        assert_eq!(wide("　　床前明月光"), [true, true]);
+        assert_eq!(wide("hello　world"), [true]);
+    }
+
+    #[test]
+    fn word_spaces_between_hanzi_words() {
+        let opts = Options { word_spaces: true };
+        let shape: String = convert_with("我们一起学习中文。", opts)
+            .iter()
+            .map(|i| match i {
+                Item::Syl(_) => 'x',
+                Item::Space { .. } => ' ',
+                _ => '.',
+            })
+            .collect();
+        assert_eq!(shape, "xx xx xx xx.");
+        // without the option, no spaces are added
+        assert!(!convert("我们一起").iter().any(|i| matches!(i, Item::Space { .. })));
     }
 
     #[test]

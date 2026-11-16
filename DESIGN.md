@@ -119,11 +119,11 @@ diǎnr puts the bar and the curl side by side.
 |-------|------|------|
 | ㄧ i | 乙 | yǐ, one stroke |
 | ㄨ u | 乂 | zhuyin's own ㄨ, crossed strokes for pursed lips |
-| ㄩ ü | 乂 + 丶 (义) | u with the tongue pushed forward (the dot) |
+| ㄩ ü | 于 | yú: a shape of its own, as zhuyin gives ü its own ㄩ |
 
 When a rhyme follows, the glide is flattened on top of it. When the glide is
-the whole final (yi, wu, yu, ji, bu, lü …), it is written full size. Crossed
-glides (乂, 义) are never flattened past 2.3 : 1, so the cross stays readable.
+the whole final (yi, wu, yu, ji, bu, lü …), it is written full size. The
+crossed 乂 is never flattened past 2.3 : 1, so the cross stays readable.
 
 ## 5. Tones
 
@@ -262,5 +262,10 @@ the start of a block, and 儿化 after a finished final.
   sizes. They differ in direction (level vs slanted).
 * *bo po mo fo* are written with ㄛ, as in zhuyin, although they are
   pronounced [uo].
-* Hanzi input is read character by character from a dictionary, plus a small
-  table of common context-dependent words. Pinyin and zhuyin input are exact.
+* Hanzi input is cut into words with a word-frequency dictionary (jieba's,
+  for simplified Chinese), picking the most probable cut. It is then read
+  word by word from a per-character dictionary plus a small table of
+  context-dependent words. Both steps are best guesses. Pinyin and zhuyin
+  input are exact. By default the Text tab puts a space between the words
+  it finds; spaces between blocks are drawn one block wide, and so is
+  every ideographic space (U+3000).

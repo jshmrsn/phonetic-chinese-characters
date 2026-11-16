@@ -62,20 +62,20 @@ impl Brush {
         weight: 0.92,
         pressure: 0.3,
         taper: 0.6,
-        pause: 0.25,
+        pause: 0.1,
         arc: 0.45,
         hook: 0.45,
-        wobble: 0.3,
+        wobble: 0.0,
     };
 
     pub const BRUSH: Brush = Brush {
         weight: 1.08,
         pressure: 0.85,
         taper: 0.95,
-        pause: 0.8,
+        pause: 0.4,
         arc: 0.7,
         hook: 0.85,
-        wobble: 0.4,
+        wobble: 0.0,
     };
 
     /// Blend from the geometric rendering (0) to the full brush (1).

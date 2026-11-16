@@ -243,11 +243,11 @@ const WU: Strokes = &[
     &[M(0.1, 0.06), Q(0.42, 0.6, 0.96, 0.96)],
 ];
 
-/// 义 ü: 乂 with the fronting dot
+/// 于 ü: a shape of its own (于 is itself read yú)
 const YU: Strokes = &[
-    &[M(0.42, 0.0), L(0.58, 0.2)],
-    &[M(0.9, 0.3), Q(0.62, 0.7, 0.04, 0.98)],
-    &[M(0.1, 0.32), Q(0.42, 0.7, 0.96, 0.98)],
+    &[M(0.16, 0.1), L(0.84, 0.1)],
+    &[M(0.0, 0.46), L(1.0, 0.46)],
+    &[M(0.52, 0.1), L(0.52, 1.0), L(0.34, 0.88)],
 ];
 
 fn vowel_strokes(v: Vowel) -> Strokes {
@@ -395,11 +395,12 @@ fn vowel_path(v: Vowel, r: Rect, asp: (f32, f32)) -> Vec<Stroke> {
     out
 }
 
-/// How flat a medial may be drawn: crossed strokes (乂, 义) stop reading as a
-/// cross when squashed too far, 乙 survives more.
+/// How flat a medial may be drawn: the crossed strokes of 乂 stop reading as a
+/// cross when squashed too far; 乙 and 于 survive more.
 fn glide_aspect(v: Vowel) -> (f32, f32) {
     match v {
         Vowel::I => aspect::GLIDE,
+        Vowel::Yu => (aspect::GLIDE.0, 2.8),
         _ => (aspect::GLIDE.0, 2.3),
     }
 }

@@ -6,6 +6,9 @@ mod phonology;
 #[path = "../src/parse.rs"]
 #[allow(dead_code)]
 mod parse;
+#[path = "../src/segment.rs"]
+#[allow(dead_code)]
+mod segment;
 #[path = "../src/glyph.rs"]
 #[allow(dead_code)]
 mod glyph;
@@ -23,7 +26,7 @@ fn main() {
     let mut html = String::from("<!doctype html><meta charset=utf-8><style>body{background:#f5f0e6;color:#1f1b16;font:13px sans-serif;margin:16px}.g{display:inline-flex;flex-direction:column;align-items:center;margin:4px 6px}svg{background:#fffdf8;outline:1px solid #e2d9c8}path{fill:currentColor;stroke:none}.r-tone{fill:#7a3fa8}.r-initial{fill:#b23a2b}.r-medial{fill:#1f8a7a}.r-rhyme{fill:#2c4ea3}.mono path{fill:#1f1b16}</style>");
     for line in text.split('|') {
         html.push_str("<div>");
-        for item in parse::convert(line) {
+        for item in parse::convert_with(line, parse::Options::default()) {
             if let parse::Item::Syl(s) = item {
                 html.push_str(&format!("<div class=g><svg width={size} height={size} viewBox='0 0 100 100'>"));
                 for (k, l) in glyph::syllable_layers(&s.syl).iter().enumerate() {
