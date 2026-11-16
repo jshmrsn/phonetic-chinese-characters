@@ -504,7 +504,7 @@ textarea:focus {
 .pad-text {
   display: inline-flex;
   align-items: center;
-  padding: 0 0.5px;
+  padding: 2px 0.5px 0;
   font-family: ui-sans-serif, -apple-system, "PingFang SC", "Noto Sans SC", "Apple Color Emoji", sans-serif;
 }
 
@@ -692,8 +692,14 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   color: var(--muted);
-  padding: 0 2px;
+  padding: 2px 2px 0;
   font-family: "Songti SC", "Noto Serif SC", serif;
+}
+
+/* commas and full stops sit at the bottom of the row */
+.text.low,
+.pad-text.low {
+  align-items: flex-end;
 }
 
 .space {

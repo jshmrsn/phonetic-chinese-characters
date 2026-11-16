@@ -242,24 +242,24 @@ impl Vowel {
     pub fn component(self) -> &'static str {
         match self {
             Vowel::A => "八",
-            Vowel::O => "又",
+            Vowel::O => "㇇",
             Vowel::E => "了",
             Vowel::Ehat => "人",
             Vowel::I => "乙",
             Vowel::U => "乂",
-            Vowel::Yu => "于",
+            Vowel::Yu => "一 + 亅",
         }
     }
 
     pub fn idea(self) -> &'static str {
         match self {
             Vowel::A => "八 bā: the jaw wide open",
-            Vowel::O => "又: a rounded loop",
+            Vowel::O => "㇇ 横撇, the first stroke of 又 (ou is the whole 又)",
             Vowel::E => "了 le: the unrounded mid vowel of 哥, 根 and 冷",
             Vowel::Ehat => "the front mid vowel of 也 yě, 谢 xiè and 美 měi: half-closed 八",
             Vowel::I => "乙 yǐ: one stroke",
             Vowel::U => "zhuyin's ㄨ: crossed strokes for pursed lips",
-            Vowel::Yu => "于 yú: a shape of its own, as zhuyin gives ü its own ㄩ",
+            Vowel::Yu => "于 without its top stroke: a shape of its own, as zhuyin gives ü its own ㄩ",
         }
     }
 }
@@ -302,7 +302,7 @@ impl Coda {
     pub fn stroke(self) -> &'static str {
         match self {
             Coda::I => "提 ㇀",
-            Coda::U => "卧钩 ㇃",
+            Coda::U => "丨 / 捺",
             Coda::N => "横 一",
             Coda::Ng => "横折钩 𠃌",
             Coda::M => "匚 + 丶",
@@ -311,18 +311,18 @@ impl Coda {
 
     pub fn idea(self) -> &'static str {
         match self {
-            Coda::I => "a rising stroke: the tongue rises toward i",
-            Coda::U => "a bowl: the lips round toward u",
-            Coda::N => "a level bar: the tongue tip seals the mouth",
-            Coda::Ng => "the same bar closed at the back, like the velar frame",
+            Coda::I => "a short rising stroke across the vowel's foot (ai, ei)",
+            Coda::U => "a vertical down the middle of 八 (ao); the 捺 that completes 又 (ou)",
+            Coda::N => "a level bar: under 八 (an), through the middle of 了 (en)",
+            Coda::Ng => "the same bar closed down at the back (ang, eng)",
             Coda::M => "only in interjections (呣, 噷)",
         }
     }
 }
 
 /// The 儿化 / er ending stroke.
-pub const R_STROKE: &str = "竖弯钩 乚";
-pub const R_IDEA: &str = "the retroflex curl: the tongue tip curls up";
+pub const R_STROKE: &str = "丿 / 竖弯钩 乚";
+pub const R_IDEA: &str = "a slash through the top of 了 (er); 儿化 adds the curl 乚 under any rhyme";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Tone {

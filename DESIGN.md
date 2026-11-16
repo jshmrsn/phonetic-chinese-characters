@@ -80,38 +80,39 @@ The marks, each exactly one stroke:
 ## 3. Rhymes: thirteen symbols
 
 These are zhuyin's thirteen rhymes. Each is one symbol: a **vowel** plus at most
-one **ending stroke**. Rhymes on the same vowel sound share the vowel. The
-ending stroke is the same for every vowel and is written close under it, so
-vowel and ending read as one shape.
+one **ending stroke**. Rhymes on the same vowel sound share the vowel.
 
-| vowel ↓ / ending → | alone | 提 -i | 卧钩 -u | 横 -n | 横折钩 -ng | 竖弯钩 -r |
-|--------------------|-------|-------|--------|-------|-----------|----------|
+| vowel ↓ / ending → | alone | -i | -u | -n | -ng | -r |
+|--------------------|-------|----|----|----|-----|----|
 | **八** ㄚ a, the jaw wide open | ㄚ a | ㄞ ai | ㄠ ao | ㄢ an | ㄤ ang | |
-| **又** ㄛ o, a rounded loop | ㄛ o | | ㄡ ou | | | |
+| **㇇** ㄛ o, the first stroke of 又 | ㄛ o | | ㄡ ou | | | |
 | **了** ㄜ e, unrounded mid (哥 根 冷) | ㄜ e | | | ㄣ en | ㄥ eng | ㄦ er |
 | **人** ㄝ ê, front mid (也 谢 美) | ㄝ ê | ㄟ ei | | | | |
+
+How each ending is written:
+
+| rhyme | written as |
+|-------|-----------|
+| ai, ei | 八 / 人 with a short rising 提 across the foot of the right stroke |
+| ao | 八 with a vertical down the middle (like 小) |
+| ou | 又: o's 横撇 completed by its 捺 |
+| an, ang | 八 with a bar under it; for ang the bar is closed down at the back (横折钩) |
+| en, eng | 了 with a bar through the middle (en looks like 子); for eng the bar is closed down at the back |
+| er | 了 with a 丿 slash through the top |
 
 Why these groupings:
 
 * **ㄟ ei is built on ㄝ ê, not on ㄜ e.** The vowel of 美 měi [meɪ] is the front
   mid vowel of 也 yě [jɛ], while 么 me [mɤ] is a back vowel. Pinyin writes all
-  three with "e"; here they are 人+提, 人 and 了.
+  three with "e"; here they are 人 with a foot, 人 and 了.
 * ㄣ en [ən], ㄥ eng [ɤŋ] and ㄦ er [ɚ] share the unrounded mid vowel of ㄜ, so
   they are built on 了.
 * 人 (ê) is 八 (a) closed at the top: the jaw half shut.
+* -n and -ng are the same bar, with -ng closed at the back, echoing the velar
+  frame 𠃌.
 
-The ending strokes:
-
-| ending | stroke | idea |
-|--------|--------|------|
-| -i | 提 ㇀ | rising: the tongue rises toward i |
-| -u | 卧钩 ㇃ | a bowl: the lips round toward u |
-| -n | 横 一 | a level bar: the tongue tip seals the mouth |
-| -ng | 横折钩 𠃌 | the same bar closed at the back, like the velar frame |
-| -r | 竖弯钩 乚 | the retroflex curl |
-
-**儿化** adds the -r curl to any rhyme: huār ㄏㄨㄚㄦ is 八 with the curl, and
-diǎnr puts the bar and the curl side by side.
+**儿化** adds the retroflex curl 乚 under any rhyme: huār ㄏㄨㄚㄦ is 八 with
+the curl under it, and diǎnr puts the bar and the curl side by side.
 
 ## 4. Medials ㄧ ㄨ ㄩ
 
@@ -119,7 +120,7 @@ diǎnr puts the bar and the curl side by side.
 |-------|------|------|
 | ㄧ i | 乙 | yǐ, one stroke |
 | ㄨ u | 乂 | zhuyin's own ㄨ, crossed strokes for pursed lips |
-| ㄩ ü | 于 | yú: a shape of its own, as zhuyin gives ü its own ㄩ |
+| ㄩ ü | 一 + 亅 | 于 without its top stroke: a shape of its own, as zhuyin gives ü its own ㄩ |
 
 When a rhyme follows, the glide is flattened on top of it. When the glide is
 the whole final (yi, wu, yu, ji, bu, lü …), it is written full size. The

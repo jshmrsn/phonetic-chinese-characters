@@ -67,6 +67,12 @@ impl Captions {
     }
 }
 
+/// Commas and full stops sit at the bottom of the line of blocks, as in
+/// printed Chinese, instead of in the middle.
+fn sits_low(text: &str) -> bool {
+    !text.is_empty() && text.chars().all(|c| matches!(c, '，' | '。' | '、' | '．' | '｡' | '､' | ',' | '.'))
+}
+
 fn syl(p: &str) -> Syllable {
     parse::parse_pinyin_token(p)
         .and_then(|v| v.into_iter().next())
@@ -90,9 +96,12 @@ enum Tab {
 
 #[component]
 fn App() -> Element {
-    let mut input = use_signal(|| EXAMPLES[0].1.to_string());
-    let size = use_signal(|| 84u32);
-    let captions = use_signal(|| Captions::Zhuyin);
+    let mut input = use_signal(|| {
+        // start with the two-paragraph news article
+        EXAMPLES.iter().find(|e| e.0 == "新闻").unwrap_or(&EXAMPLES[0]).1.to_string()
+    });
+    let size = use_signal(|| 40u32);
+    let captions = use_signal(|| Captions::Off);
     let colorize = use_signal(|| false);
     let sandhi = use_signal(|| false);
     let word_spaces = use_signal(|| true);
@@ -320,10 +329,10 @@ fn DisplayBar(
                     "Size"
                     input {
                         r#type: "range",
-                        min: "40",
+                        min: "20",
                         max: "160",
                         value: "{size}",
-                        oninput: move |e| size.set(e.value().parse().unwrap_or(84)),
+                        oninput: move |e| size.set(e.value().parse().unwrap_or(40)),
                     }
                 }
                 div { class: "segmented", role: "group", "aria-label": "Colour theme",
@@ -688,7 +697,7 @@ fn PadItem(
         Written::Text(t) => {
             let fs = size as f32 * 0.5;
             rsx! {
-                span { class: "pad-text", style: "height: {size}px; font-size: {fs}px;", "{t}" }
+                span { class: if sits_low(t) { "pad-text low" } else { "pad-text" }, style: "height: {size}px; font-size: {fs}px;", "{t}" }
             }
         }
         Written::Space => {
@@ -1098,7 +1107,7 @@ fn ItemView(
         Item::Text(t) => {
             let fs = size as f32 * 0.5;
             rsx! {
-                span { class: "text", style: "height: {size}px; font-size: {fs}px;", "{t}" }
+                span { class: if sits_low(&t) { "text low" } else { "text" }, style: "height: {size}px; font-size: {fs}px;", "{t}" }
             }
         }
         Item::Space { .. } => {
@@ -1288,7 +1297,7 @@ fn Reference() -> Element {
 
             h3 { "3 · Rhymes: thirteen symbols, one per sound" }
             p { class: "muted",
-                "Zhuyin's thirteen rhymes, each written as one symbol. The four vowel sounds each get their own shape (rows). A rhyme ending in a glide or a nasal adds a single stroke to its vowel (columns), the same stroke for every vowel: a rising 提 for -i, a bowl for -u, a bar for -n, the bar closed at the back for -ng, and the retroflex curl for -r. 儿化 adds that same curl to any rhyme: huār is ㄏㄨㄚㄦ, the ㄚ symbol with the curl."
+                "Zhuyin's thirteen rhymes, each written as one symbol. The four vowel sounds each get their own shape (rows). A rhyme ending in a glide or a nasal adds one stroke to its vowel (columns): a rising foot for -i (ai, ei), a vertical through 八 for ao and the 捺 that completes 又 for ou, a bar under 八 or through 了 for -n, the same bar closed at the back for -ng, and a slash through the top of 了 for er. 儿化 adds the curl 乚 under any rhyme: huār is ㄏㄨㄚㄦ, the ㄚ symbol with the curl."
             }
             RhymeChart {}
 

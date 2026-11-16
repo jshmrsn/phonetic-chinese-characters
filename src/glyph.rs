@@ -12,7 +12,7 @@
 //! just as 土 keeps its weight whether it is the full character or the
 //! bottom of 坐.
 
-use crate::phonology::{Coda, Consonant, Manner, Place, Syllable, Tone, Vowel, R_IDEA, R_STROKE};
+use crate::phonology::{Coda, Consonant, Manner, Place, Syllable, Tone, Vowel};
 
 /// Stroke width for components.
 pub const SW: f32 = 5.6;
@@ -209,11 +209,75 @@ const BA: Strokes = &[
     &[M(0.66, 0.08), Q(0.7, 0.62, 0.98, 0.94)],
 ];
 
-/// 又 o
-const YOU: Strokes = &[
+/// ㇇ o: 横撇, the first stroke of 又
+const HENG_PIE: Strokes = &[&[M(0.1, 0.04), L(0.86, 0.04), Q(0.66, 0.62, 0.06, 1.0)]];
+
+// --- Rhymes with a shape of their own (the ending stroke is part of it) ---
+
+/// 又 ou: o's 横撇 completed by its 捺
+const OU: Strokes = &[
     &[M(0.08, 0.04), L(0.86, 0.04), Q(0.66, 0.62, 0.04, 1.0)],
     &[M(0.22, 0.3), Q(0.5, 0.86, 0.98, 0.98)],
 ];
+
+/// ao: 八 with a vertical down the middle
+const BA_SHU: Strokes = &[
+    &[M(0.32, 0.06), Q(0.3, 0.62, 0.02, 0.96)],
+    &[M(0.68, 0.1), Q(0.72, 0.62, 0.98, 0.94)],
+    &[M(0.5, 0.0), L(0.5, 1.0)],
+];
+
+/// ai: 八 with a short rising stroke across the foot of its right stroke
+const BA_FOOT: Strokes = &[
+    &[M(0.34, 0.04), Q(0.32, 0.62, 0.02, 0.96)],
+    &[M(0.62, 0.08), Q(0.66, 0.62, 0.92, 0.9)],
+    &[M(0.6, 1.0), L(1.0, 0.74)],
+];
+
+/// ei: 人 with the same foot across its right stroke
+const REN_FOOT: Strokes = &[
+    &[M(0.52, 0.02), Q(0.46, 0.6, 0.02, 0.96)],
+    &[M(0.49, 0.3), Q(0.62, 0.78, 0.9, 0.92)],
+    &[M(0.6, 1.0), L(1.0, 0.76)],
+];
+
+/// en: 了 with a bar through the middle, like 子
+const ZI: Strokes = &[
+    &[M(0.12, 0.04), L(0.84, 0.04), L(0.52, 0.32)],
+    &[M(0.52, 0.32), L(0.52, 1.0), L(0.32, 0.88)],
+    &[M(0.0, 0.56), L(1.0, 0.56)],
+];
+
+/// eng: 了 with the bar through the middle closed down at the back (横折钩)
+const LE_HZG: Strokes = &[
+    &[M(0.12, 0.04), L(0.8, 0.04), L(0.46, 0.32)],
+    &[M(0.46, 0.32), L(0.46, 1.0), L(0.28, 0.88)],
+    &[M(0.0, 0.56), L(0.92, 0.56), L(0.92, 1.0), L(0.76, 0.9)],
+];
+
+/// er: 了 with a 丿 slash through the top
+const LE_PIE: Strokes = &[
+    &[M(0.1, 0.18), L(0.86, 0.18), L(0.52, 0.44)],
+    &[M(0.52, 0.44), L(0.52, 1.0), L(0.32, 0.88)],
+    &[M(0.46, 0.0), Q(0.4, 0.24, 0.12, 0.42)],
+];
+
+/// The rhymes drawn as one shape of their own, and the bare vowels.
+/// an and ang are not here: they keep the vowel with the bar under it.
+fn rhyme_shape(nucleus: Vowel, coda: Option<Coda>, rhotic: bool) -> Option<Strokes> {
+    Some(match (nucleus, coda, rhotic) {
+        (Vowel::E, None, true) => LE_PIE,
+        (_, _, true) => return None,
+        (Vowel::O, Some(Coda::U), _) => OU,
+        (Vowel::A, Some(Coda::U), _) => BA_SHU,
+        (Vowel::A, Some(Coda::I), _) => BA_FOOT,
+        (Vowel::Ehat, Some(Coda::I), _) => REN_FOOT,
+        (Vowel::E, Some(Coda::N), _) => ZI,
+        (Vowel::E, Some(Coda::Ng), _) => LE_HZG,
+        (v, None, _) => vowel_strokes(v),
+        _ => return None,
+    })
+}
 
 /// 了 e
 const LE: Strokes = &[
@@ -243,17 +307,16 @@ const WU: Strokes = &[
     &[M(0.1, 0.06), Q(0.42, 0.6, 0.96, 0.96)],
 ];
 
-/// 于 ü: a shape of its own (于 is itself read yú)
+/// ü: 于 without its top stroke, a bar crossed by a hooked vertical
 const YU: Strokes = &[
-    &[M(0.16, 0.1), L(0.84, 0.1)],
-    &[M(0.0, 0.46), L(1.0, 0.46)],
-    &[M(0.52, 0.1), L(0.52, 1.0), L(0.34, 0.88)],
+    &[M(0.0, 0.4), L(1.0, 0.4)],
+    &[M(0.52, 0.0), L(0.52, 1.0), L(0.34, 0.88)],
 ];
 
 fn vowel_strokes(v: Vowel) -> Strokes {
     match v {
         Vowel::A => BA,
-        Vowel::O => YOU,
+        Vowel::O => HENG_PIE,
         Vowel::E => LE,
         Vowel::Ehat => REN,
         Vowel::I => YI,
@@ -269,8 +332,8 @@ fn vowel_strokes(v: Vowel) -> Strokes {
 
 /// -i: 提, a rising stroke, the tongue rising toward i
 const END_I: Strokes = &[&[M(0.2, 0.94), L(0.8, 0.06)]];
-/// -u: 卧钩, a bowl, the lips rounding toward u
-const END_U: Strokes = &[&[M(0.03, 0.08), Q(0.3, 1.0, 0.8, 0.9), L(0.97, 0.36)]];
+/// -u: the vertical of ao (in ou, the 捺 that completes 又)
+const END_U: Strokes = &[&[M(0.5, 0.0), L(0.5, 1.0)]];
 /// -n: 横, a level bar, the tongue tip sealing the mouth
 const END_N: Strokes = &[&[M(0.02, 0.5), L(0.98, 0.5)]];
 /// -ng: 横折钩, the same bar closed at the back
@@ -288,7 +351,7 @@ const END_R: Strokes = &[&[
 fn ending(c: Option<Coda>) -> (Strokes, f32, f32) {
     match c {
         Some(Coda::I) => (END_I, 0.9, 1.8),
-        Some(Coda::U) => (END_U, 1.8, 3.4),
+        Some(Coda::U) => (END_U, 0.1, 0.6),
         Some(Coda::N) => (END_N, 2.0, 99.0),
         Some(Coda::Ng) => (END_NG, 1.8, 3.4),
         Some(Coda::M) => (END_N, 2.0, 99.0),
@@ -417,20 +480,23 @@ fn endings_path(endings: &[Option<Coda>], band: Rect, out: &mut Vec<Stroke>) {
     }
 }
 
-/// One rhyme symbol: the vowel, with its ending stroke tucked under it.
+/// One rhyme symbol. Most rhymes are a shape of their own (`rhyme_shape`);
+/// an and ang are 八 with the bar under it, and 儿化 adds the curl underneath.
 fn rhyme_path(nucleus: Vowel, coda: Option<Coda>, rhotic: bool, r: Rect, asp: (f32, f32)) -> Vec<Stroke> {
     let mut out = Vec::new();
     let r = r.fit(asp.0, asp.1);
+    if let Some(shape) = rhyme_shape(nucleus, coda, rhotic) {
+        emit(shape, r.inset(SW / 2.0), &mut out);
+        return out;
+    }
+    // the part above the band: the rhyme's own shape if it has one, else the vowel
+    let top_shape = rhyme_shape(nucleus, coda, false);
     let mut endings = Vec::new();
-    if coda.is_some() {
+    if top_shape.is_none() && coda.is_some() {
         endings.push(coda);
     }
     if rhotic {
         endings.push(None);
-    }
-    if endings.is_empty() {
-        emit(vowel_strokes(nucleus), r.inset(SW / 2.0), &mut out);
-        return out;
     }
     // The ending sits close under the vowel (closer than any gap between
     // parts), so vowel + ending read as one symbol.
@@ -438,7 +504,7 @@ fn rhyme_path(nucleus: Vowel, coda: Option<Coda>, rhotic: bool, r: Rect, asp: (f
     let gap = r.h * 0.03;
     let top = Rect::new(r.x, r.y, r.w, r.h - band_h - gap);
     let vowel = top.fit(aspect::RHYME_VOWEL.0, aspect::RHYME_VOWEL.1);
-    emit(vowel_strokes(nucleus), vowel.inset(SW / 2.0), &mut out);
+    emit(top_shape.unwrap_or(vowel_strokes(nucleus)), vowel.inset(SW / 2.0), &mut out);
     let band = Rect::new(vowel.x, r.y + r.h - band_h, vowel.w, band_h);
     endings_path(&endings, band, &mut out);
     out
@@ -506,11 +572,11 @@ fn final_layers(s: &Syllable, rect: Rect, beside_initial: bool, layers: &mut Vec
         }
         return;
     };
-    let has_ending = s.coda.is_some() || s.rhotic;
+    let has_band = rhyme_shape(nucleus, s.coda, s.rhotic).is_none();
     match s.medial {
         Some(m) => {
             let mw = if m == Vowel::Yu { 0.42 } else { 0.34 };
-            let rw = if has_ending { 0.95 } else { 0.62 };
+            let rw = if has_band { 0.95 } else { 0.66 };
             let gap = 6.0;
             let avail = rect.h - gap;
             let mh = avail * mw / (mw + rw);
@@ -613,6 +679,27 @@ pub struct PartInfo {
     pub note: String,
 }
 
+/// What a rhyme symbol is made of, and why.
+fn rhyme_parts(n: Vowel, coda: Option<Coda>, rhotic: bool) -> (String, String) {
+    let (base, note): (String, String) = match (n, coda, rhotic && coda.is_none() && n == Vowel::E) {
+        (Vowel::E, None, true) => ("了 + 丿 through the top".into(), "er: the slash marks the curled tongue".into()),
+        (Vowel::O, Some(Coda::U), _) => ("又 (㇇ + 捺)".into(), "ou: o's 横撇 completed by its 捺".into()),
+        (Vowel::A, Some(Coda::U), _) => ("八 + 丨 down the middle".into(), "ao: a with a vertical through it".into()),
+        (Vowel::A, Some(Coda::I), _) => ("八 + 提 across its foot".into(), "ai: a with a rising foot".into()),
+        (Vowel::Ehat, Some(Coda::I), _) => ("人 + 提 across its foot".into(), "ei: ê with a rising foot".into()),
+        (Vowel::E, Some(Coda::N), _) => ("子 (了 + 一 through the middle)".into(), "en: e with a bar through it".into()),
+        (Vowel::E, Some(Coda::Ng), _) => ("了 + 横折钩 through the middle".into(), "eng: en's bar closed at the back".into()),
+        (Vowel::A, Some(Coda::N), _) => ("八 + 一 below".into(), "an: a with a bar under it".into()),
+        (Vowel::A, Some(Coda::Ng), _) => ("八 + 横折钩 below".into(), "ang: an's bar closed at the back".into()),
+        (v, _, _) => (v.component().to_string(), format!("the vowel {} on its own", v.pinyin())),
+    };
+    if rhotic && !(n == Vowel::E && coda.is_none()) {
+        (format!("{base} + 乚 below"), format!("{note}; 儿化 adds the retroflex curl"))
+    } else {
+        (base, note)
+    }
+}
+
 fn consonant_component(c: Consonant) -> String {
     match c.manner {
         Manner::Plain => c.place.frame().to_string(),
@@ -640,24 +727,9 @@ pub fn describe(s: &Syllable) -> Vec<PartInfo> {
     }
     match s.nucleus {
         Some(n) => {
-            let mut component = n.component().to_string();
-            let mut notes = Vec::new();
-            if let Some(c) = s.coda {
-                component.push_str(&format!(" + {}", c.stroke()));
-                notes.push(c.idea());
-            }
-            if s.rhotic {
-                component.push_str(&format!(" + {R_STROKE}"));
-                notes.push(R_IDEA);
-            }
+            let (component, note) = rhyme_parts(n, s.coda, s.rhotic);
             let role = vowel_role(n);
-            let note = if role == Role::Medial {
-                "the glide is the whole final".to_string()
-            } else if notes.is_empty() {
-                format!("the vowel {} on its own", n.pinyin())
-            } else {
-                format!("one symbol: {} plus {}", n.pinyin(), notes.join("; "))
-            };
+            let note = if role == Role::Medial { "the glide is the whole final".to_string() } else { note };
             let sound = format!("{} {}", s.rhyme_zhuyin(), s.rhyme_name());
             v.push(PartInfo { role, sound, component, note });
         }
@@ -671,7 +743,7 @@ pub fn describe(s: &Syllable) -> Vec<PartInfo> {
             None if s.initial.is_some() => v.push(PartInfo {
                 role: Role::Rhyme,
                 sound: if s.rhotic { "-ir".into() } else { "-i".into() },
-                component: if s.rhotic { R_STROKE.into() } else { "(none)".into() },
+                component: if s.rhotic { "乚 below".into() } else { "(none)".into() },
                 note: "buzzing 'empty' vowel: the initial is written alone".into(),
             }),
             None => {}
