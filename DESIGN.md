@@ -267,6 +267,13 @@ the start of a block, and 儿化 after a finished final.
   for simplified Chinese), picking the most probable cut. It is then read
   word by word from a per-character dictionary plus a small table of
   context-dependent words. Both steps are best guesses. Pinyin and zhuyin
-  input are exact. By default the Text tab puts a space between the words
-  it finds; spaces between blocks are drawn one block wide, and so is
-  every ideographic space (U+3000).
+  input are exact. By default the Text tab links the blocks of each word
+  of two or more blocks with short brush-drawn "bridge" strokes at
+  tone-mark height, each 35% of a block wide and centred on the gap between
+  blocks. It can instead (or as well) put a space between words, underline
+  each word with a 横 inset a third of a block at each end, or link the
+  blocks with small dots, or with short vertical lines hanging from the top
+  of the blocks. Sliders set the bridge length (10–90% of a block width)
+  and the line length (10–100% of a block height), and a Top/Middle switch
+  moves bridges, dots and lines to the blocks' vertical centre. Spaces between blocks are drawn one block wide, and so is every
+  ideographic space (U+3000).

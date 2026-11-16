@@ -88,6 +88,17 @@ enum Theme {
     Night,
 }
 
+/// A run of output kept together on one line: a word's blocks, then any
+/// punctuation and spaces that follow it.
+struct WordGroup {
+    items: Vec<usize>,
+    /// the segmenter's word number, for hanzi
+    word: Option<u32>,
+    newline: bool,
+    /// how many of the leading items are the word's blocks
+    blocks: usize,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Tab {
     Text,
@@ -104,7 +115,18 @@ fn App() -> Element {
     let captions = use_signal(|| Captions::Off);
     let colorize = use_signal(|| false);
     let sandhi = use_signal(|| false);
-    let word_spaces = use_signal(|| true);
+    // word boundaries are shown with bridges at tone-mark height by default
+    let word_spaces = use_signal(|| false);
+    let word_underlines = use_signal(|| false);
+    let word_bridges = use_signal(|| true);
+    let word_dots = use_signal(|| false);
+    let word_lines = use_signal(|| false);
+    // bridge length as a share of a block width
+    let bridge_len = use_signal(|| 0.35f32);
+    // vertical line length as a share of a block height
+    let line_len = use_signal(|| 0.3f32);
+    // bridges and dots at the blocks' vertical centre instead of tone-mark height
+    let bridge_mid = use_signal(|| false);
     let theme = use_signal(|| Theme::Auto);
     // the stylesheet keys its colours off <html data-theme>
     use_effect(move || {
@@ -136,22 +158,42 @@ fn App() -> Element {
     });
     let syllable_count = items.read().iter().filter(|i| matches!(i, Item::Syl(_))).count();
     let wide = parse::wide_spaces(&items.read().iter().map(Item::flow).collect::<Vec<_>>());
-    // group each word with the spaces after it, so lines break between words
-    // and never start with a gap; a line break is a group of its own
-    let groups: Vec<Vec<usize>> = {
-        let mut groups: Vec<Vec<usize>> = Vec::new();
+    // Group each word (by spaces, and by the segmenter's word numbers) with
+    // the punctuation and spaces after it, so lines break between words and
+    // never start with a gap. A line break is a group of its own.
+    let groups: Vec<WordGroup> = {
+        let items = items.read();
+        let mut groups: Vec<WordGroup> = Vec::new();
         let mut prev_space = false;
-        for (i, item) in items.read().iter().enumerate() {
+        for (i, item) in items.iter().enumerate() {
             let space = matches!(item, Item::Space { .. });
-            let newline = matches!(item, Item::Newline);
-            let start_new = newline
-                || groups.is_empty()
-                || matches!(items.read()[groups.last().unwrap()[0]], Item::Newline)
-                || (prev_space && !space);
+            let (is_syl, word) = match item {
+                Item::Syl(s) => (true, s.word),
+                _ => (false, None),
+            };
+            let start_new = match groups.last() {
+                None => true,
+                Some(g) => {
+                    matches!(item, Item::Newline)
+                        || g.newline
+                        || (prev_space && !space)
+                        || (is_syl && word != g.word)
+                }
+            };
             if start_new {
-                groups.push(vec![i]);
+                groups.push(WordGroup {
+                    items: vec![i],
+                    word,
+                    newline: matches!(item, Item::Newline),
+                    blocks: usize::from(is_syl),
+                });
             } else {
-                groups.last_mut().unwrap().push(i);
+                let g = groups.last_mut().unwrap();
+                g.items.push(i);
+                // the blocks of a word come first; count them for the underline
+                if is_syl && g.blocks == g.items.len() - 1 {
+                    g.blocks += 1;
+                }
             }
             prev_space = space;
         }
@@ -191,7 +233,21 @@ fn App() -> Element {
                 }
             }
 
-            DisplayBar { size, captions, colorize, sandhi, word_spaces, theme }
+            DisplayBar {
+                size,
+                captions,
+                colorize,
+                sandhi,
+                word_spaces,
+                word_underlines,
+                word_bridges,
+                word_dots,
+                word_lines,
+                bridge_len,
+                line_len,
+                bridge_mid,
+                theme,
+            }
 
             // both tabs stay mounted, so switching never loses what was typed
             div { class: pane(Tab::Text),
@@ -228,11 +284,60 @@ fn App() -> Element {
                         }
                         div { class: "output",
                             for group in groups {
-                                if group.len() == 1 && matches!(items.read()[group[0]], Item::Newline) {
+                                if group.newline {
                                     div { class: "break" }
                                 } else {
                                     span { class: "word",
-                                        for i in group {
+                                        // multi-block words can carry an inset underline
+                                        span {
+                                            class: if word_underlines() && group.word.is_some() && group.blocks >= 2 { "word-blocks underlined" } else { "word-blocks" },
+                                            style: "--inset: {size() / 3}px;",
+                                            if word_underlines() && group.word.is_some() && group.blocks >= 2 {
+                                                Underline { blocks: group.blocks, size: size(), seed: group.items[0] as u32 }
+                                            }
+                                            if word_bridges() && group.word.is_some() && group.blocks >= 2 {
+                                                Bridges {
+                                                    blocks: group.blocks,
+                                                    size: size(),
+                                                    seed: group.items[0] as u32,
+                                                    kind: BridgeKind::Bar,
+                                                    length: bridge_len(),
+                                                    middle: bridge_mid(),
+                                                }
+                                            }
+                                            if word_dots() && group.word.is_some() && group.blocks >= 2 {
+                                                Bridges {
+                                                    blocks: group.blocks,
+                                                    size: size(),
+                                                    seed: group.items[0] as u32,
+                                                    kind: BridgeKind::Dot,
+                                                    middle: bridge_mid(),
+                                                }
+                                            }
+                                            if word_lines() && group.word.is_some() && group.blocks >= 2 {
+                                                Bridges {
+                                                    blocks: group.blocks,
+                                                    size: size(),
+                                                    seed: group.items[0] as u32,
+                                                    kind: BridgeKind::Line,
+                                                    length: line_len(),
+                                                    middle: bridge_mid(),
+                                                }
+                                            }
+                                            for i in group.items[..group.blocks].iter().copied() {
+                                                ItemView {
+                                                    key: "{i}",
+                                                    item: items.read()[i].clone(),
+                                                    index: i,
+                                                    wide: wide[i],
+                                                    size: size(),
+                                                    captions: captions(),
+                                                    selected: selected() == Some(i),
+                                                    on_select: move |i| selected.set(Some(i)),
+                                                }
+                                            }
+                                        }
+                                        for i in group.items[group.blocks..].iter().copied() {
                                             ItemView {
                                                 key: "{i}",
                                                 item: items.read()[i].clone(),
@@ -283,6 +388,13 @@ fn DisplayBar(
     mut colorize: Signal<bool>,
     mut sandhi: Signal<bool>,
     mut word_spaces: Signal<bool>,
+    mut word_underlines: Signal<bool>,
+    mut word_bridges: Signal<bool>,
+    mut word_dots: Signal<bool>,
+    mut word_lines: Signal<bool>,
+    mut bridge_len: Signal<f32>,
+    mut line_len: Signal<f32>,
+    mut bridge_mid: Signal<bool>,
     mut theme: Signal<Theme>,
 ) -> Element {
     let mut brush = use_context::<Signal<Brush>>();
@@ -324,6 +436,86 @@ fn DisplayBar(
                         onchange: move |e| word_spaces.set(e.checked()),
                     }
                     "Word spaces"
+                }
+                label { class: "toggle",
+                    title: "In the Text tab, underline each word of two or more blocks (same best-guess words as Word spaces)",
+                    input {
+                        r#type: "checkbox",
+                        checked: word_underlines(),
+                        onchange: move |e| word_underlines.set(e.checked()),
+                    }
+                    "Word underlines"
+                }
+                label { class: "toggle",
+                    title: "In the Text tab, link the blocks of each word with a short stroke",
+                    input {
+                        r#type: "checkbox",
+                        checked: word_bridges(),
+                        onchange: move |e| word_bridges.set(e.checked()),
+                    }
+                    "Word bridges"
+                }
+                if word_bridges() {
+                    label { class: "toggle size",
+                        title: "Bridge length, as a share of a block width",
+                        "Bridge length"
+                        input {
+                            r#type: "range",
+                            min: "10",
+                            max: "90",
+                            step: "5",
+                            value: "{(bridge_len() * 100.0).round()}",
+                            oninput: move |e| bridge_len.set(e.value().parse::<f32>().unwrap_or(35.0) / 100.0),
+                        }
+                    }
+                }
+                label { class: "toggle",
+                    title: "In the Text tab, put a small dot between the blocks of each word",
+                    input {
+                        r#type: "checkbox",
+                        checked: word_dots(),
+                        onchange: move |e| word_dots.set(e.checked()),
+                    }
+                    "Word dots"
+                }
+                label { class: "toggle",
+                    title: "In the Text tab, put a short vertical line between the blocks of each word",
+                    input {
+                        r#type: "checkbox",
+                        checked: word_lines(),
+                        onchange: move |e| word_lines.set(e.checked()),
+                    }
+                    "Word lines"
+                }
+                if word_lines() {
+                    label { class: "toggle size",
+                        title: "Line length, as a share of a block height",
+                        "Line length"
+                        input {
+                            r#type: "range",
+                            min: "10",
+                            max: "100",
+                            step: "5",
+                            value: "{(line_len() * 100.0).round()}",
+                            oninput: move |e| line_len.set(e.value().parse::<f32>().unwrap_or(30.0) / 100.0),
+                        }
+                    }
+                }
+                if word_bridges() || word_dots() || word_lines() {
+                    div { class: "segmented", role: "group", "aria-label": "Bridge, dot and line height",
+                        for (mid , label , hint) in [
+                            (false, "Top", "bridges and dots at the height of the tone marks; lines hang from the top of the blocks"),
+                            (true, "Middle", "bridges, dots and lines at the vertical centre of the blocks"),
+                        ]
+                        {
+                            button {
+                                class: if bridge_mid() == mid { "seg active" } else { "seg" },
+                                title: "{hint}",
+                                onclick: move |_| bridge_mid.set(mid),
+                                "{label}"
+                            }
+                        }
+                    }
                 }
                 label { class: "toggle size",
                     "Size"
@@ -598,6 +790,7 @@ fn KeyboardTab(input: Signal<String>, size: u32, captions: Captions, colorize: b
             source: s.zhuyin(),
             origin: parse::Origin::Zhuyin,
             sandhi_from: None,
+            word: None,
         }),
         _ => None,
     });
@@ -1022,6 +1215,109 @@ fn Knob(
                 oninput: move |e| on_change.call(e.value().parse().unwrap_or(value)),
             }
             div { class: "knob-hint", "{hint}" }
+        }
+    }
+}
+
+/// A word underline: one 横 stroke drawn with the current brush, at the
+/// blocks' stroke weight, inset a third of a block at each end.
+#[component]
+fn Underline(blocks: usize, size: u32, seed: u32) -> Element {
+    let brush = use_context::<Signal<Brush>>();
+    let b = brush();
+    let s = size as f32;
+    // each block cell is the glyph plus 1px padding on either side
+    let width_px = blocks as f32 * (s + 2.0) - 2.0 * (s / 3.0);
+    // draw in the glyphs' own units (100 per block), so the weight matches
+    let k = 100.0 / s;
+    let len = width_px * k;
+    let h = 16.0;
+    let half = glyph::SW / 2.0;
+    let stroke = vec![glyph::Seg::M(half, h / 2.0), glyph::Seg::L(len - half, h / 2.0)];
+    let mut d = String::new();
+    brush::stroke_outline(&stroke, glyph::SW, &b, seed.wrapping_mul(31).wrapping_add(7), &mut d);
+    let h_px = h / k;
+    // centre the stroke a little below the blocks, clear of their bottom strokes
+    let bottom = -h_px / 2.0 - 0.04 * s;
+    rsx! {
+        svg {
+            class: "word-underline",
+            view_box: "0 0 {len} {h}",
+            width: "{width_px}",
+            height: "{h_px}",
+            style: "bottom: {bottom}px;",
+            path { d: "{d}" }
+        }
+    }
+}
+
+/// How the blocks of a word are linked, between each pair of neighbours.
+#[derive(Clone, Copy, PartialEq)]
+enum BridgeKind {
+    /// a short 横 across the gap
+    Bar,
+    /// a small 点 on the gap
+    Dot,
+    /// a short 竖 on the gap
+    Line,
+}
+
+/// Word bridges: between each pair of neighbouring blocks of one word, a
+/// short stroke drawn with the current brush at the tone marks' weight.
+/// For a `Bar`, `length` is its total length as a share of a block width,
+/// centred on the gap between the two blocks; for a `Line` it is a share of
+/// a block height.
+/// Bars and dots sit at the height of the tone marks, and lines hang from
+/// the top of the blocks; with `middle` all of them are centred on the
+/// blocks' vertical centre.
+#[component]
+fn Bridges(
+    blocks: usize,
+    size: u32,
+    seed: u32,
+    kind: BridgeKind,
+    #[props(default = 0.35)] length: f32,
+    #[props(default)] middle: bool,
+) -> Element {
+    let brush = use_context::<Signal<Brush>>();
+    let b = brush();
+    let s = size as f32;
+    let cell = s + 2.0;
+    // glyph units: 100 per block
+    let k = 100.0 / s;
+    let width_px = blocks as f32 * cell;
+    let height_px = 2.0 + s;
+    // each glyph starts 2px down; inside it the tone marks sit at y = 9.5
+    // and the centre is y = 50
+    let y = 2.0 * k + if middle { 50.0 } else { 9.5 };
+    let mut d = String::new();
+    for i in 0..blocks.saturating_sub(1) {
+        // the gap between block i and block i + 1
+        let boundary = (i + 1) as f32 * cell;
+        let cx = boundary * k;
+        let stroke = match kind {
+            BridgeKind::Bar => {
+                let half = length / 2.0 * s;
+                vec![glyph::Seg::M((boundary - half) * k, y), glyph::Seg::L((boundary + half) * k, y)]
+            }
+            // short, falling from top-left to bottom-right
+            BridgeKind::Dot => vec![glyph::Seg::M(cx - 1.8, y - 1.8), glyph::Seg::L(cx + 1.8, y + 1.8)],
+            BridgeKind::Line => {
+                let len = length * 100.0;
+                let top = if middle { y - len / 2.0 } else { 2.0 * k };
+                vec![glyph::Seg::M(cx, top), glyph::Seg::L(cx, top + len)]
+            }
+        };
+        let salt = seed.wrapping_mul(131).wrapping_add(i as u32 * 17 + 3);
+        brush::stroke_outline(&stroke, glyph::TONE_SW, &b, salt, &mut d);
+    }
+    rsx! {
+        svg {
+            class: "word-bridges",
+            view_box: "0 0 {width_px * k} {height_px * k}",
+            width: "{width_px}",
+            height: "{height_px}",
+            path { d: "{d}" }
         }
     }
 }

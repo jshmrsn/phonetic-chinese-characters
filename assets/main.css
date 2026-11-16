@@ -630,6 +630,41 @@ textarea:focus {
   row-gap: 10px;
 }
 
+.word-blocks {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-start;
+}
+
+/* an underline under multi-block words, inset 1/3 of a block at each end,
+   drawn as a brush stroke in the text colour */
+.word-underline {
+  position: absolute;
+  left: var(--inset);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.word-underline path {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* short strokes (or dots) linking the blocks of a word, at tone-mark height
+   or at the blocks' vertical centre */
+.word-bridges {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.word-bridges path {
+  fill: currentColor;
+  stroke: none;
+}
+
 .break {
   flex-basis: 100%;
   height: 6px;

@@ -19,6 +19,9 @@ pub struct SylItem {
     pub origin: Origin,
     /// Set when tone sandhi changed the tone; holds the citation tone.
     pub sandhi_from: Option<Tone>,
+    /// For hanzi: which word (from best-guess segmentation) this syllable
+    /// belongs to. Syllables of the same word share the number.
+    pub word: Option<u32>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -142,6 +145,7 @@ pub fn convert(input: &str) -> Vec<Item> {
 pub fn convert_with(input: &str, opts: Options) -> Vec<Item> {
     let chars: Vec<char> = input.chars().collect();
     let mut items = Vec::new();
+    let mut next_word = 0u32;
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
@@ -159,7 +163,7 @@ pub fn convert_with(input: &str, opts: Options) -> Vec<Item> {
             while i < chars.len() && is_hanzi(chars[i]) {
                 i += 1;
             }
-            hanzi_run(&chars[start..i], &mut items, opts);
+            hanzi_run(&chars[start..i], &mut items, opts, &mut next_word);
         } else if is_zhuyin(c) {
             let start = i;
             while i < chars.len() && is_zhuyin(chars[i]) {
@@ -183,7 +187,7 @@ pub fn convert_with(input: &str, opts: Options) -> Vec<Item> {
             let token: String = chars[start..i].iter().collect();
             match parse_pinyin_token(&token) {
                 Some(syls) => items.extend(syls.into_iter().map(|(syl, source)| {
-                    Item::Syl(SylItem { syl, source, origin: Origin::Pinyin, sandhi_from: None })
+                    Item::Syl(SylItem { syl, source, origin: Origin::Pinyin, sandhi_from: None, word: None })
                 })),
                 None => items.push(Item::Text(token)),
             }
@@ -449,6 +453,7 @@ fn zhuyin_run(chars: &[char], items: &mut Vec<Item>) {
                 source: std::mem::take(&mut acc.source),
                 origin: Origin::Zhuyin,
                 sandhi_from: None,
+                word: None,
             })),
             None => items.push(Item::Text(std::mem::take(&mut acc.source))),
         }
@@ -655,19 +660,20 @@ fn reading_syllable(reading: &str) -> Option<Syllable> {
 
 /// A run of hanzi: cut it into words, read each word, and optionally put a
 /// space between words.
-fn hanzi_run(chars: &[char], items: &mut Vec<Item>, opts: Options) {
+fn hanzi_run(chars: &[char], items: &mut Vec<Item>, opts: Options, next_word: &mut u32) {
     let mut start = 0;
     for (k, len) in crate::segment::segment(chars).into_iter().enumerate() {
         if opts.word_spaces && k > 0 {
             items.push(Item::Space { ideographic: false });
         }
-        hanzi_word(&chars[start..start + len], items);
+        hanzi_word(&chars[start..start + len], items, *next_word);
+        *next_word += 1;
         start += len;
     }
 }
 
 /// Read one word: known phrases first, then character by character.
-fn hanzi_word(chars: &[char], items: &mut Vec<Item>) {
+fn hanzi_word(chars: &[char], items: &mut Vec<Item>, word_id: u32) {
     use pinyin::ToPinyin;
     let mut i = 0;
     while i < chars.len() {
@@ -693,6 +699,7 @@ fn hanzi_word(chars: &[char], items: &mut Vec<Item>) {
                             source: chars[i + k].to_string(),
                             origin: Origin::Hanzi,
                             sandhi_from: None,
+                            word: Some(word_id),
                         }));
                     }
                 }
@@ -721,6 +728,7 @@ fn hanzi_word(chars: &[char], items: &mut Vec<Item>) {
                 source: c.to_string(),
                 origin: Origin::Hanzi,
                 sandhi_from: None,
+                word: Some(word_id),
             })),
             None => items.push(Item::Text(c.to_string())),
         }
@@ -853,6 +861,20 @@ mod tests {
         assert_eq!(shape, "xx xx xx xx.");
         // without the option, no spaces are added
         assert!(!convert("我们一起").iter().any(|i| matches!(i, Item::Space { .. })));
+    }
+
+    #[test]
+    fn hanzi_syllables_know_their_word() {
+        let words: Vec<Option<u32>> = convert("我们一起学习")
+            .iter()
+            .filter_map(|i| match i {
+                Item::Syl(s) => Some(s.word),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(words, [Some(0), Some(0), Some(1), Some(1), Some(2), Some(2)]);
+        // pinyin has no segmentation
+        assert!(convert("nǐ hǎo").iter().all(|i| !matches!(i, Item::Syl(s) if s.word.is_some())));
     }
 
     #[test]
